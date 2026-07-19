@@ -3,7 +3,7 @@
 NPM := npm
 BIN := ./node_modules/.bin
 
-.PHONY: install hooks test test-watch test-cov lint format fix typecheck audit vuln check build bundle vsix clean push pull log docs-gate
+.PHONY: install hooks test test-watch test-cov lint format fix typecheck audit vuln check build bundle verify-bundle vsix vsix-verify clean push pull log docs-gate
 
 install:
 	$(NPM) install
@@ -41,7 +41,7 @@ audit: vuln
 vuln:
 	bash ../.github/scripts/vuln-scan.sh .
 
-check: lint typecheck test-cov vuln bundle docs-gate
+check: lint typecheck test-cov vuln bundle verify-bundle docs-gate
 
 build:
 	$(NPM) run build
@@ -49,8 +49,21 @@ build:
 bundle:
 	$(NPM) run bundle
 
+# Prove the packaged bundle is self-contained: an unbundled runtime dep would
+# ship a .vsix that installs cleanly and then does nothing (see scripts/).
+verify-bundle:
+	node scripts/verify-bundle.mjs
+
 vsix:
 	$(NPM) run vsix
+
+# Package, then READ the package: assert the bundle and the language
+# configuration actually made it past the `files` allow-list.
+vsix-verify: vsix
+	unzip -l m-vscode-*.vsix | grep -q 'extension/dist/extension.cjs'
+	unzip -l m-vscode-*.vsix | grep -q 'extension/language-configuration.json'
+	unzip -p m-vscode-*.vsix extension/dist/extension.cjs | grep -q 'LanguageClient'
+	@echo 'vsix-verify: OK — bundle + language configuration present, client bundled in.'
 
 clean:
 	rm -rf dist coverage .nyc_output *.tsbuildinfo

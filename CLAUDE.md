@@ -60,13 +60,18 @@ Biome (lint + format), `node:test` + `tsx`, `c8` coverage, esbuild bundle,
 make install     # npm install + hooks
 make test        # fast inner loop
 make test-watch  # TDD mode
-make check       # THE GATE: lint + typecheck + test-cov + vuln + bundle + docs-gate
+make check       # THE GATE: lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate
 make vsix        # package the extension
+make vsix-verify # package, then unzip and assert what shipped
 make log MSG=".."# append to docs/changelog.md
 ```
 
 - **`make check` is offline** (de-GitHub directive). `vuln` is the shared
   air-gapped `../.github/scripts/vuln-scan.sh`; `npm audit` is NOT at gate time.
+- **`make check` needs the `m` toolchain on `PATH`** — the equivalence gate
+  (`src/lsp/equivalence.e2e.test.ts`) drives a real `m lsp` and a real
+  `m lint`, and FAILS rather than skips if `m` is missing. It is the proof of
+  the extension's core promise; never weaken it to a skip.
 - **Run gates bare, never piped** — `make check | tail` returns tail's status
   and a red gate sails through.
 - Only `npm install` / `npm ci` may touch the network, and only at sync time.
@@ -87,5 +92,5 @@ make log MSG=".."# append to docs/changelog.md
 ## Git
 
 Trunk-based per the org Increment Protocol: gates green locally, then commit
-straight to `main`. **No GitHub remote exists yet** — creating it is the
-operator's call; until then commits are local only.
+straight to `main`. The GitHub remote (`vista-forge/m-vscode`) exists and is
+wired, so verified increments push.

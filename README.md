@@ -12,17 +12,53 @@ is about the *language*:
 | [`vista-atlas`](../vista-atlas) | what the VA documentation **SAYS** (the gold corpus) |
 | **`m-vscode`** (this) | the **M language itself** — syntax, diagnostics, formatting, tests |
 
-## Status — P0 (scaffold)
+## Status — P2 (language client)
 
-Shipped here: the `mumps` language registration (id `mumps`, aliases
-`MUMPS`/`M`, extensions `.m`/`.mac`/`.int`, bracket + comment configuration)
-and an activation smoke command, `M: Show Language Tools Status`.
+Shipped here:
 
-Not yet: tree-sitter syntax highlighting (P1), the `m lsp` client for
-diagnostics and format-on-save (P2), hover/completion/symbols (P3), Test
-Explorer and coverage gutters (P4). See the effort's
+- the `mumps` language registration (id `mumps`, aliases `MUMPS`/`M`,
+  extensions `.m`/`.mac`/`.int`, bracket + comment configuration);
+- an **`m lsp` client over stdio** giving **live diagnostics** and
+  **formatting** (so `editor.formatOnSave` works) for M documents;
+- commands `M: Show Language Tools Status` and `M: Restart Language Server`.
+
+Not yet: tree-sitter syntax highlighting (P1), hover/completion/symbols (P3),
+Test Explorer and coverage gutters (P4). See the effort's
 [proposal](../docs/proposals/pure-m-vscode/pure-m-vscode.md) and
 [tracker](../docs/proposals/pure-m-vscode/pure-m-vscode-tracker.md).
+
+### The guarantee: editor diagnostics == CI diagnostics
+
+The findings shown in the editor are the findings `m lint` produces — same rule
+ids, same lines, same severities. That is not a claim, it is a **gate**:
+`src/lsp/equivalence.e2e.test.ts` runs `m lint -o json` and a real `m lsp`
+session over the same fixture project and requires an identical result. It runs
+in `make check`, and it **fails** rather than skips when `m` is unavailable.
+
+Both diagnostic dialects meet in exactly one module, `src/lsp/normalize.ts`
+(LSP is 0-based, `m lint` is 1-based). Nothing else in this repo knows anything
+about M.
+
+### Settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `mLanguageTools.enable` | `true` | run the language server at all |
+| `mLanguageTools.serverPath` | `m` | path to the `m` executable |
+| `mLanguageTools.serverArgs` | `["lsp"]` | arguments passed to it |
+| `mLanguageTools.lint.profile` | `""` | profile override; empty = the project's `.m-cli.toml`, which is what keeps the editor and CI identical (see the note below) |
+| `mLanguageTools.diagnostics.debounceMs` | `300` | delay before a keystroke burst is re-linted |
+| `mLanguageTools.diagnostics.largeFileBytes` | `262144` | documents this size or larger lint on **save only** |
+
+The last two mitigate the server's whole-document, non-cancellable lint
+(proposal §7-R3): a 1 MB routine costs seconds per lint, so above the threshold
+the extension deliberately stops linting as you type and says so in the *M
+Language Tools* output channel — an explained downgrade beats a frozen editor.
+`mLanguageTools.lint.profile` is inert until `m lsp` honours a client-supplied
+profile (a P3 change in m-cli); until then the project config governs.
+
+If `m` is not on `PATH` the extension says so, once, with the setting that
+fixes it — it never fails silently.
 
 ## Design principle — thin client, fat toolchain
 
@@ -44,9 +80,13 @@ meta-gate's `REPOS_TXT_ALLOW`.
 ```bash
 make install     # npm install + git hooks
 make test        # node:test via tsx
-make check       # lint + typecheck + test-cov + vuln + bundle + docs-gate (offline)
+make check       # lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate (offline)
 make vsix        # package the .vsix
+make vsix-verify # package, then unzip and assert the bundle really shipped
 ```
+
+`make check` requires the `m` toolchain on `PATH` — the equivalence gate talks
+to a real `m lsp`. It stays offline: no network at gate time.
 
 Node 24 (`.node-version`, `engine-strict=true`). Full conventions: `CLAUDE.md`.
 

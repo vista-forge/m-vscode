@@ -72,8 +72,66 @@
       {
         "command": "mVscode.showStatus",
         "title": "M: Show Language Tools Status"
+      },
+      {
+        "command": "mVscode.restartServer",
+        "title": "M: Restart Language Server"
       }
     ],
+    "configuration": {
+      "title": "M Language Tools",
+      "properties": {
+        "mLanguageTools.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the M language server (`m lsp`) for diagnostics and formatting."
+        },
+        "mLanguageTools.serverPath": {
+          "type": "string",
+          "default": "m",
+          "description": "Path to the `m` executable. Resolved on PATH when left as `m`."
+        },
+        "mLanguageTools.serverArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "lsp"
+          ],
+          "description": "Arguments passed to the server executable."
+        },
+        "mLanguageTools.lint.profile": {
+          "type": "string",
+          "enum": [
+            "",
+            "default",
+            "modern",
+            "pythonic",
+            "pedantic",
+            "xindex",
+            "sac",
+            "vista",
+            "all"
+          ],
+          "default": "",
+          "markdownDescription": "Lint profile override. Leave empty (recommended) to use the project's `.m-cli.toml` — the same file `m lint` and CI read, which is what makes editor diagnostics identical to CI diagnostics. **Note:** `m lsp` does not yet honour an override sent by the client; until it does (tracked as a P3 change in m-cli) this setting has no effect and the project config governs."
+        },
+        "mLanguageTools.diagnostics.debounceMs": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Milliseconds to wait after you stop typing before re-linting. The server re-lints the whole document per change, so this bounds how often that happens."
+        },
+        "mLanguageTools.diagnostics.largeFileBytes": {
+          "type": "number",
+          "default": 262144,
+          "minimum": 0,
+          "markdownDescription": "Documents this size or larger are linted **on save only**, not as you type — a 1 MB routine costs seconds per lint. Set to `0` to always lint live. The chosen mode is announced in the *M Language Tools* output channel."
+        }
+      }
+    },
     "languages": [
       {
         "id": "mumps",
@@ -89,5 +147,8 @@
         "configuration": "./language-configuration.json"
       }
     ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
   }
 }

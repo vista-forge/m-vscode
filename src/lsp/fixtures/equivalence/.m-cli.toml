@@ -1,0 +1,7 @@
+# Fixture project config for the LSP/CLI equivalence gate.
+#
+# The profile is pinned HERE, not on a command line, because that is the only
+# thing `m lsp` and `m lint` both read — the shared source that makes editor
+# diagnostics and CI diagnostics the same findings by construction.
+[lint]
+rules = "all"
