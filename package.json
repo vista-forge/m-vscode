@@ -1,0 +1,93 @@
+{
+  "name": "m-vscode",
+  "version": "0.1.0",
+  "description": "M Language Tools (MUMPS) — VS Code extension for pure, portable M: language registration, tree-sitter syntax, and an LSP client over `m lsp`. No VistA required.",
+  "type": "module",
+  "main": "./dist/extension.cjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "language-configuration.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=24",
+    "vscode": "^1.125.0"
+  },
+  "scripts": {
+    "test": "node --import tsx --test 'src/**/*.test.ts'",
+    "test:watch": "node --import tsx --test --watch 'src/**/*.test.ts'",
+    "test:cov": "c8 --reporter=text --reporter=lcov node --import tsx --test 'src/**/*.test.ts'",
+    "lint": "biome check src/",
+    "format": "biome format --write src/",
+    "fix": "biome check --write src/",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "audit": "npm audit --audit-level=high",
+    "check": "npm run lint && npm run typecheck && npm run test:cov && npm run bundle",
+    "prepublishOnly": "npm run build",
+    "bundle": "esbuild src/ext/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --platform=node --format=cjs --sourcemap",
+    "vscode:prepublish": "npm run bundle",
+    "vsix": "vsce package --no-dependencies"
+  },
+  "license": "AGPL-3.0",
+  "author": "Rafael Richards",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.2",
+    "@types/node": "^26.1.0",
+    "@types/vscode": "^1.125.0",
+    "@vscode/test-electron": "^3.0.0",
+    "@vscode/vsce": "^3.9.2",
+    "c8": "^11.0.0",
+    "esbuild": "^0.28.1",
+    "simple-git-hooks": "^2.11.1",
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.3"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npm run lint && npm run typecheck",
+    "pre-push": "npm run test:cov"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vista-forge/m-vscode"
+  },
+  "displayName": "M Language Tools (MUMPS)",
+  "publisher": "vista-forge",
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:mumps"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "mVscode.showStatus",
+        "title": "M: Show Language Tools Status"
+      }
+    ],
+    "languages": [
+      {
+        "id": "mumps",
+        "aliases": [
+          "MUMPS",
+          "M"
+        ],
+        "extensions": [
+          ".m",
+          ".mac",
+          ".int"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  }
+}
