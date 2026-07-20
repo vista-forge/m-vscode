@@ -115,3 +115,62 @@ distinct, which is what the gate is actually protecting.
 **The general lesson, and it is the same one as the byte/UTF-16 column seam:
 normalise toward the producer's own representation, never invent an inverse for
 a lossy mapping.**
+
+## P3-feat Session B (2026-07-20) — hover/completion/documentSymbol/folding wiring
+
+**`vscode-languageclient`'s built-in features need no client code to reach the
+UI.** `HoverFeature`, `CompletionItemFeature`, `DocumentSymbolFeature` and
+`FoldingRangeFeature` are unconditionally constructed in
+`BaseLanguageClient.registerBuiltinFeatures()` (`lib/common/client.js`) and
+each registers its VS Code provider itself once `initialize` returns a
+truthy capability flag, against `clientOptions.documentSelector`. Session B's
+work was verifying this, not building it — confirmed by reading the library
+source (nothing else needed) AND by driving `vscode.execute*Provider`
+against the real, bundled extension in a real Extension Host
+(`src/smoke/`, `@vscode/test-electron` against `/usr/share/code/code`,
+already installed — no download, no network).
+
+**⚠️ `transport: TransportKind.stdio` is not a no-op — it changes argv.** For
+an `Executable`-shaped `ServerOptions` (`command` + `args`, no `module`),
+`vscode-languageclient` only appends `--stdio` to the child process's argv
+when `transport` is set to `TransportKind.stdio` **explicitly** (that flag
+exists for servers offering multiple transports, e.g. `typescript-language-
+server`). Leaving `transport` **undefined** still launches over stdio — it is
+this shape's default — but sends `args` unmodified. `client.ts` had set the
+explicit form since P2; `m lsp` has no `--stdio` flag and exited 2 (USAGE)
+on every real launch, which `vscode-languageclient` reported only as
+"Pending response rejected since connection got disposed" — no mention of
+the flag anywhere. **The equivalence gate could never catch this**: it talks
+to `m lsp` directly via the hand-rolled `LspSession` (`session.ts`), never
+through `vscode-languageclient`, so a defect in how THIS repo calls that
+library was invisible to every gate until a real VS Code ran the real
+extension. Fix: omit `transport` for any `Executable` server. Red-proofed
+against the smoke suite (rc 1 → 0).
+
+**The smoke suite is the only thing in this repo that exercises the actual
+`vscode-languageclient` code path** — `capabilities.e2e.test.ts` (and the
+equivalence gate) prove `m lsp` answers correctly over raw stdio, which is
+necessary but not sufficient. Not part of `make check` (needs a display and
+an installed VS Code — the `vista-compass`/`vista-atlas` `test:vscode`
+pattern, reused verbatim: `runTests` against `/usr/share/code/code`, no
+download). Run manually (`npm run test:vscode`) and report the result, same
+as the P4 dual-engine acceptance run.
+
+**A code-review hunch is not a repro.** Investigating the crash, `restart()`
+(in `extension.ts`) looked reentrancy-unsafe (a `didChangeConfiguration`
+racing the initial activation restart could dispose a still-starting
+client) — a real hazard, closed with `src/ext/serialize.ts`. But the smoke
+suite's own output-channel capture showed `started \`m lsp\`` exactly once
+during the actual crash, proving that hazard was NOT what caused it. Keep
+the fix (it is real and now unit-tested), but do not credit it for a bug it
+did not cause — the `--stdio` argv defect was the whole story. Suspect the
+mechanism you can reproduce, not the one you can imagine.
+
+**`positionEncoding: utf-16` needed no client change.**
+`vscode-languageclient` 9.0.1 hardcodes
+`generalCapabilities.positionEncodings = ['utf-16']` in the client
+capabilities it sends, and **throws** if `initialize` ever returns a
+different `positionEncoding` — so the server declaring `utf-16` is simply
+confirming what the client already assumes, and `normalize.ts`'s UTF-16
+column arithmetic (unchanged since Tier 1) stays correct without any new
+code here.
