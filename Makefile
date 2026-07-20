@@ -3,7 +3,7 @@
 NPM := npm
 BIN := ./node_modules/.bin
 
-.PHONY: install hooks test test-watch test-cov lint format fix typecheck audit vuln check build bundle verify-bundle vsix vsix-verify clean push pull log docs-gate
+.PHONY: install hooks test test-watch test-cov lint format fix typecheck audit vuln check build bundle verify-bundle vsix vsix-verify clean push pull log docs-gate sync-wasm check-wasm
 
 install:
 	$(NPM) install
@@ -41,7 +41,19 @@ audit: vuln
 vuln:
 	bash ../.github/scripts/vuln-scan.sh .
 
-check: lint typecheck test-cov vuln bundle verify-bundle docs-gate
+# Vendor the tree-sitter-m editor artifacts. CONSUME, NEVER REBUILD: the
+# artifact and its drift gate live upstream (`make wasm` in tree-sitter-m).
+# Running `tree-sitter build` here would recreate the very divergence that
+# gate exists to prevent.
+sync-wasm:
+	node scripts/sync-wasm.mjs
+
+# The vendored copy is intact AND not stale. Runs first in `check`, because
+# everything downstream colours M by whatever this says is current.
+check-wasm:
+	node scripts/check-wasm.mjs
+
+check: check-wasm lint typecheck test-cov vuln bundle verify-bundle docs-gate
 
 build:
 	$(NPM) run build
@@ -63,7 +75,15 @@ vsix-verify: vsix
 	unzip -l m-vscode-*.vsix | grep -q 'extension/dist/extension.cjs'
 	unzip -l m-vscode-*.vsix | grep -q 'extension/language-configuration.json'
 	unzip -p m-vscode-*.vsix extension/dist/extension.cjs | grep -q 'LanguageClient'
-	@echo 'vsix-verify: OK — bundle + language configuration present, client bundled in.'
+# The grammar, its query, and web-tree-sitter's runtime must be INSIDE the
+# archive — a filtered-out asset fails silently at runtime (uncoloured M, no
+# error anywhere), so assert the packaged bytes, not the source tree.
+	unzip -l m-vscode-*.vsix | grep -q 'extension/dist/assets/tree-sitter-m.wasm'
+	unzip -l m-vscode-*.vsix | grep -q 'extension/dist/assets/highlights.scm'
+	unzip -l m-vscode-*.vsix | grep -q 'extension/dist/assets/tree-sitter.wasm'
+	unzip -p m-vscode-*.vsix extension/dist/assets/tree-sitter-m.wasm | \
+	  sha256sum | grep -q "$$(python3 -c "import json;print(json.load(open('assets/tree-sitter-m.wasm.json'))['artifact_sha256'])")"
+	@echo 'vsix-verify: OK — bundle, language configuration, and grammar assets present; grammar sha matches the upstream manifest.'
 
 clean:
 	rm -rf dist coverage .nyc_output *.tsbuildinfo

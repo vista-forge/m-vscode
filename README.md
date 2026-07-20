@@ -12,20 +12,45 @@ is about the *language*:
 | [`vista-atlas`](../vista-atlas) | what the VA documentation **SAYS** (the gold corpus) |
 | **`m-vscode`** (this) | the **M language itself** — syntax, diagnostics, formatting, tests |
 
-## Status — P2 (language client)
+## Status — P1 + P2 (syntax highlighting + language client)
 
 Shipped here:
 
 - the `mumps` language registration (id `mumps`, aliases `MUMPS`/`M`,
   extensions `.m`/`.mac`/`.int`, bracket + comment configuration);
+- **AST syntax highlighting** — a VS Code semantic-tokens provider over the
+  **tree-sitter-m** grammar (WASM, via `web-tree-sitter`), colouring M from the
+  real parse tree rather than a regex approximation;
 - an **`m lsp` client over stdio** giving **live diagnostics** and
   **formatting** (so `editor.formatOnSave` works) for M documents;
 - commands `M: Show Language Tools Status` and `M: Restart Language Server`.
 
-Not yet: tree-sitter syntax highlighting (P1), hover/completion/symbols (P3),
-Test Explorer and coverage gutters (P4). See the effort's
+Not yet: hover/completion/symbols (P3), Test Explorer and coverage gutters
+(P4). See the effort's
 [proposal](../docs/proposals/pure-m-vscode/pure-m-vscode.md) and
 [tracker](../docs/proposals/pure-m-vscode/pure-m-vscode-tracker.md).
+
+### Syntax highlighting — consumed, never rebuilt
+
+The grammar is **not built here**. `tree-sitter-m` builds and drift-gates the
+`web-tree-sitter` artifact upstream; `make sync-wasm` vendors a byte-identical
+copy into `assets/`, and `make check-wasm` (first step of `make check`) proves
+that copy is neither hand-edited nor **stale** against the upstream checkout. A
+second build in this repo would recreate exactly the divergence the upstream
+gate exists to prevent.
+
+Capture names from `highlights.scm` are translated to VS Code semantic token
+types by one table, `src/highlight/mapping.ts` — the only M-adjacent knowledge
+in the repo. An **unmapped capture renders as plain text with no error**, so the
+mapping is gated from the query file itself, both statically (every name the
+query declares) and empirically (every name it produces on a real routine).
+
+Mid-typing buffers are the state an editor actually lives in, so they get their
+own acceptance test: `src/highlight/typing-session.e2e.test.ts` replays 183
+keystroke-level edits over a real corpus routine — including deliberately broken
+states that produce ERROR trees — and forbids a crash, a hang, a tree collapse,
+or the document losing its colour. Partial trees are *expected* and tolerated;
+the test states exactly which is which.
 
 ### The guarantee: editor diagnostics == CI diagnostics
 
@@ -80,9 +105,11 @@ meta-gate's `REPOS_TXT_ALLOW`.
 ```bash
 make install     # npm install + git hooks
 make test        # node:test via tsx
-make check       # lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate (offline)
+make check       # check-wasm + lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate (offline)
+make sync-wasm   # re-vendor the tree-sitter-m artifacts from ../tree-sitter-m
+make check-wasm  # the vendored grammar is intact and not stale
 make vsix        # package the .vsix
-make vsix-verify # package, then unzip and assert the bundle really shipped
+make vsix-verify # package, then unzip and assert the bundle + grammar really shipped
 ```
 
 `make check` requires the `m` toolchain on `PATH` — the equivalence gate talks

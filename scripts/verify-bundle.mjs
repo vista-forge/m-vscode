@@ -13,13 +13,22 @@
  *   1. the bundle exists and exports `activate`/`deactivate`;
  *   2. the language client is actually inside it;
  *   3. nothing outside Node builtins + the `vscode` host API is required at
- *      runtime — i.e. no unbundled dependency to go missing.
+ *      runtime — i.e. no unbundled dependency to go missing;
+ *   4. every runtime ASSET is staged under `dist/assets` — a grammar that is
+ *      not in the package fails exactly as silently as an unbundled dep, and
+ *      the user's only symptom is uncoloured M.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 
 const BUNDLE = 'dist/extension.cjs';
+const ASSETS = [
+  'dist/assets/tree-sitter-m.wasm',
+  'dist/assets/tree-sitter-m.wasm.json',
+  'dist/assets/highlights.scm',
+  'dist/assets/tree-sitter.wasm', // web-tree-sitter's own emscripten runtime
+];
 
 let src;
 try {
@@ -52,9 +61,27 @@ if (external.length > 0) {
   );
 }
 
+for (const asset of ASSETS) {
+  if (!existsSync(asset)) {
+    problems.push(`runtime asset missing: ${asset} — run \`make bundle\` (bundle-assets.mjs)`);
+  } else if (statSync(asset).size === 0) {
+    problems.push(`runtime asset is empty: ${asset}`);
+  }
+}
+
+// The grammar must be the vendored artifact byte-for-byte, not a truncated copy.
+if (existsSync('dist/assets/tree-sitter-m.wasm') && existsSync('assets/tree-sitter-m.wasm')) {
+  const staged = statSync('dist/assets/tree-sitter-m.wasm').size;
+  const vendored = statSync('assets/tree-sitter-m.wasm').size;
+  if (staged !== vendored) problems.push(`staged grammar is ${staged} bytes, vendored ${vendored}`);
+}
+
 if (problems.length > 0) fail(problems.join('\n  - '));
 
-console.log(`verify-bundle: OK — ${BUNDLE} is self-contained (${(src.length / 1024) | 0} KiB).`);
+console.log(
+  `verify-bundle: OK — ${BUNDLE} is self-contained (${(src.length / 1024) | 0} KiB) ` +
+    `and ${ASSETS.length} runtime assets are staged.`,
+);
 
 function fail(message) {
   console.error(`verify-bundle: FAILED\n  - ${message}`);

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { registerHighlighting } from '../highlight/provider.js';
 import { statusText } from '../lsp/policy.js';
 import { CONFIG_SECTION, type MLanguageClient, readSettings, startClient } from './client.js';
 import { statusMessage } from './status.js';
@@ -49,6 +50,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (e.affectsConfiguration(CONFIG_SECTION)) await restart();
     }),
   );
+
+  // Syntax highlighting (P1) is independent of the language server (P2): a
+  // missing or broken `m` binary must not cost the user their colours, and a
+  // missing grammar must not cost them diagnostics.
+  await registerHighlighting(context, output);
 
   await restart();
 }

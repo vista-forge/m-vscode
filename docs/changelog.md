@@ -59,3 +59,7 @@ nothing — a failure mode no other gate in this repo can see.
 **Thin client held.** Zero M semantics added: rule ids are opaque strings, and
 the only M-adjacent knowledge is the LSP severity enum, which the equivalence
 gate pins.
+
+## 2026-07-20
+
+P1-downstream: AST syntax highlighting. Semantic-tokens provider over the vendored tree-sitter-m WASM grammar (consumed from upstream, never rebuilt); capture-mapping coverage gated from highlights.scm itself; R1 typing-session fixture (183 keystroke steps, 26 with ERROR trees) forbidding crash/hang/tree-collapse/colour-loss; check-wasm staleness gate; grammar assets asserted inside the .vsix.

@@ -38,6 +38,23 @@ onward, so the extension is AGPL — **not** the org's Apache-2.0 default, and
 not vista-compass's MIT. Do not "fix" the license to match the peers. Any new
 dependency must be AGPL-compatible.
 
+## The grammar is vendored, never built here
+
+`assets/tree-sitter-m.wasm` + `assets/highlights.scm` are **copies** of
+tree-sitter-m's committed artifacts, synced by `make sync-wasm` and recorded in
+`assets/source.json` (upstream commit + per-file sha256). **Never run
+`tree-sitter build` in this repo** — the artifact and its cross-repo drift gate
+live upstream, and a second build here recreates the divergence that gate
+closed. If the grammar needs to change, it changes in tree-sitter-m; then
+re-sync here, re-run the tests (the node-kind pin and capture-mapping gate will
+tell you what moved), and commit.
+
+`make check-wasm` is the first step of `make check`: it reds on a hand-edited
+copy and on a copy that has gone **stale** against the upstream checkout. With
+no tree-sitter-m checkout beside this repo it prints a loud UNVERIFIED banner
+and passes (`STRICT_UPSTREAM=1` makes absence fatal) — it never pretends to
+have verified staleness it could not see.
+
 ## Language-registration ownership (D2)
 
 This repo is the owner of the `mumps` language id. `src/lang/contribution.ts`
@@ -60,7 +77,9 @@ Biome (lint + format), `node:test` + `tsx`, `c8` coverage, esbuild bundle,
 make install     # npm install + hooks
 make test        # fast inner loop
 make test-watch  # TDD mode
-make check       # THE GATE: lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate
+make check       # THE GATE: check-wasm + lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate
+make sync-wasm   # re-vendor the tree-sitter-m artifacts (CONSUME, never rebuild)
+make check-wasm  # vendored grammar intact + not stale vs ../tree-sitter-m
 make vsix        # package the extension
 make vsix-verify # package, then unzip and assert what shipped
 make log MSG=".."# append to docs/changelog.md
