@@ -31,5 +31,13 @@ npm-debug.log*
 
 # OS
 Thumbs.db
-*.vsix
 .vscode-test/
+
+# Release artifact — TRACKED, not ignored (org rule 6: releases = annotated
+# tags + committed artifacts). `make vsix`/`make release` always produce a
+# deterministic `<name>-<version>.vsix` filename, so there is no separate
+# "dev build" name to exclude by pattern. Every package is source-map-free
+# (package.json's `vscode:prepublish` forces the release bundle before any
+# `vsce package`); the discipline is procedural, not path-based — only
+# commit a .vsix that came from a green `make release` (clean floor + full
+# gate + vsix-verify), not an ad-hoc `make vsix` run mid-edit.

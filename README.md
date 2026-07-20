@@ -85,6 +85,29 @@ profile (a P3 change in m-cli); until then the project config governs.
 If `m` is not on `PATH` the extension says so, once, with the setting that
 fixes it — it never fails silently.
 
+## Installing the extension
+
+Distribution is **local-first** (org rule 6: releases are annotated git tags
+plus committed artifacts; no marketplace publishing yet — that is a separate,
+deferred ruling, see the [tracker](../docs/proposals/pure-m-vscode/pure-m-vscode-tracker.md)).
+The released `.vsix` is committed at the repo root as
+`m-vscode-<version>.vsix` (currently
+[`m-vscode-0.1.0.vsix`](m-vscode-0.1.0.vsix)). To install it:
+
+```bash
+code --install-extension m-vscode-0.1.0.vsix
+```
+
+Or from the Extensions view: **⋯ menu → Install from VSIX…** and pick the
+file. To build your own copy instead of using the committed one, run
+`make release` (below) and install the `.vsix` it produces.
+
+**Runtime requirement:** syntax highlighting (tree-sitter-m, bundled in the
+`.vsix`) works with no other install. Diagnostics and format-on-save need the
+**`m` executable on `PATH`** (it runs `m lsp` as a child process) — without it
+the extension says so once, in the *M Language Tools* output channel, and
+names the setting (`mLanguageTools.serverPath`) that points it elsewhere.
+
 ## Design principle — thin client, fat toolchain
 
 No M semantics live in this repo. Parsing comes from **tree-sitter-m** (WASM
@@ -108,8 +131,9 @@ make test        # node:test via tsx
 make check       # check-wasm + lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate (offline)
 make sync-wasm   # re-vendor the tree-sitter-m artifacts from ../tree-sitter-m
 make check-wasm  # the vendored grammar is intact and not stale
-make vsix        # package the .vsix
+make vsix        # package the .vsix (always rebuilds map-free before packaging)
 make vsix-verify # package, then unzip and assert the bundle + grammar really shipped
+make release     # clean + npm ci + full gate + no-sourcemap bundle + package + verify
 ```
 
 `make check` requires the `m` toolchain on `PATH` — the equivalence gate talks

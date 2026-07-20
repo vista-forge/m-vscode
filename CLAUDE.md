@@ -80,10 +80,28 @@ make test-watch  # TDD mode
 make check       # THE GATE: check-wasm + lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate
 make sync-wasm   # re-vendor the tree-sitter-m artifacts (CONSUME, never rebuild)
 make check-wasm  # vendored grammar intact + not stale vs ../tree-sitter-m
-make vsix        # package the extension
-make vsix-verify # package, then unzip and assert what shipped
+make vsix        # package the extension (vsce's own `vscode:prepublish` hook
+                 # always rebuilds map-free first — see package.json)
+make vsix-verify # package, then unzip and assert what shipped (also reds on a
+                 # shipped source map, as a regression guard)
+make release     # clean + npm ci + full gate + no-sourcemap bundle + package +
+                 # verify — the release artifact; NOT wired into `check`
 make log MSG=".."# append to docs/changelog.md
 ```
+
+## Release artifact — committed, local distribution (D4)
+
+Distribution is local-first (org rule 6): the released `.vsix` is **tracked in
+git**, not `.gitignore`d — see `.gitignore`'s comment for why a filename-based
+"dev vs release" split doesn't apply here (both use the same deterministic
+`<name>-<version>.vsix` name; the release/dev distinction is procedural, not a
+path pattern). `make release` is the sanctioned way to produce the committed
+artifact: it reruns the full gate on a clean floor, then packages. The
+packaged bundle never carries a source map — `package.json`'s
+`vscode:prepublish` (vsce's lifecycle hook, runs before every `vsce package`)
+is wired to `bundle:release`, not the sourcemapped dev `bundle`, so this holds
+for any `vsce package` invocation, not just `make release`. Tagging a release
+(P5) is a separate, explicit operator action — `make release` never tags.
 
 - **`make check` is offline** (de-GitHub directive). `vuln` is the shared
   air-gapped `../.github/scripts/vuln-scan.sh`; `npm audit` is NOT at gate time.

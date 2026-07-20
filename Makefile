@@ -3,7 +3,7 @@
 NPM := npm
 BIN := ./node_modules/.bin
 
-.PHONY: install hooks test test-watch test-cov lint format fix typecheck audit vuln check build bundle verify-bundle vsix vsix-verify clean push pull log docs-gate sync-wasm check-wasm
+.PHONY: install hooks test test-watch test-cov lint format fix typecheck audit vuln check build bundle release-bundle verify-bundle vsix vsix-verify release clean push pull log docs-gate sync-wasm check-wasm
 
 install:
 	$(NPM) install
@@ -61,6 +61,21 @@ build:
 bundle:
 	$(NPM) run bundle
 
+# The RELEASE bundle — no --sourcemap. `bundle` (above) keeps the source map
+# for dev/debug (extension-host breakpoints resolve to TS, e.g. F5); the
+# packaged .vsix must not carry one (a 1.6 MB source map was the dominant
+# entry in a 591 KB package). `npm run vsix` (below) ALWAYS rebuilds via this
+# same `bundle:release` script too — `vsce package` runs the `vscode:prepublish`
+# lifecycle hook (`package.json`) unconditionally before packaging, so a plain
+# `make vsix` right after `make check`/`make bundle` still ships map-free.
+# This target exists to make that rebuild explicit/inspectable outside
+# packaging, and to `rm -f` a stale map left on disk by a prior dev bundle
+# (esbuild without --sourcemap does not delete one that is already there, and
+# `files: ["dist", ...]` in package.json would ship whatever it finds).
+release-bundle:
+	$(NPM) run bundle:release
+	rm -f dist/extension.cjs.map
+
 # Prove the packaged bundle is self-contained: an unbundled runtime dep would
 # ship a .vsix that installs cleanly and then does nothing (see scripts/).
 verify-bundle:
@@ -83,7 +98,29 @@ vsix-verify: vsix
 	unzip -l m-vscode-*.vsix | grep -q 'extension/dist/assets/tree-sitter.wasm'
 	unzip -p m-vscode-*.vsix extension/dist/assets/tree-sitter-m.wasm | \
 	  sha256sum | grep -q "$$(python3 -c "import json;print(json.load(open('assets/tree-sitter-m.wasm.json'))['artifact_sha256'])")"
-	@echo 'vsix-verify: OK — bundle, language configuration, and grammar assets present; grammar sha matches the upstream manifest.'
+# A released package must not carry a source map (see release-bundle above).
+# `vscode:prepublish` already forces this on every `npm run vsix`, but assert
+# the packaged bytes anyway — a regression here (e.g. `vscode:prepublish`
+# drifting back to `bundle`) would otherwise ship silently.
+	@if unzip -l m-vscode-*.vsix | grep -q 'dist/extension.cjs.map'; then \
+	  echo 'vsix-verify: FAILED — packaged .vsix contains a source map (dist/extension.cjs.map); run `make release-bundle` (drops --sourcemap) before packaging a release'; \
+	  exit 1; \
+	fi
+	@echo 'vsix-verify: OK — bundle, language configuration, and grammar assets present; grammar sha matches the upstream manifest; no source map shipped.'
+
+# Reproducible release build: clean floor, install from lockfile, run the
+# FULL gate (proves the tree is release-worthy), then rebuild the bundle
+# WITHOUT a source map, package it, and verify what actually shipped.
+# Offline throughout (npm ci is the only network step, same as `install`);
+# never a dependency of `check` — packaging is not a gate.
+release: clean
+	$(NPM) ci
+	$(MAKE) hooks
+	$(MAKE) check
+	$(MAKE) release-bundle
+	$(MAKE) verify-bundle
+	$(MAKE) vsix-verify
+	@echo "release: OK — $$(ls m-vscode-*.vsix) ready to review and commit"
 
 clean:
 	rm -rf dist coverage .nyc_output *.tsbuildinfo
