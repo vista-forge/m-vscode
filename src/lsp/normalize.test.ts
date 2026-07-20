@@ -80,7 +80,7 @@ describe('fromLspDiagnostic — the 0-based to 1-based seam', () => {
         },
         ASCII_DOC,
       ),
-      { rule: 'M-STY-001', line: 1, col: 1, severity: 'error' },
+      { rule: 'M-STY-001', line: 1, col: 1, severity: 1 },
     );
   });
 
@@ -95,27 +95,26 @@ describe('fromLspDiagnostic — the 0-based to 1-based seam', () => {
       },
       doc,
     );
-    assert.deepEqual(got, { rule: 'M-MOD-037', line: 2, col: 19, severity: 'error' });
+    assert.deepEqual(got, { rule: 'M-MOD-037', line: 2, col: 19, severity: 1 });
   });
 
-  const severities: { lsp: number; want: string }[] = [
-    { lsp: 1, want: 'error' },
-    { lsp: 2, want: 'warning' },
-    { lsp: 3, want: 'info' },
-    { lsp: 4, want: 'style' },
-  ];
-  for (const s of severities) {
-    it(`maps LSP severity ${s.lsp} to ${s.want}`, () => {
+  // The wire value is carried through UNCHANGED — see LSP_SEVERITY_FOR: the
+  // server's name->number mapping is many-to-one (style and info both publish
+  // as 3), so a number can no longer be inverted to a name and the gate
+  // compares numbers.
+  const severities = [1, 2, 3, 4];
+  for (const lsp of severities) {
+    it(`carries LSP severity ${lsp} through unchanged`, () => {
       const got = fromLspDiagnostic(
         {
           range: { start: { line: 4, character: 6 }, end: { line: 4, character: 8 } },
-          severity: s.lsp,
+          severity: lsp,
           code: 'M-MOD-009',
           message: 'm',
         },
         ASCII_DOC,
       );
-      assert.equal(got.severity, s.want);
+      assert.equal(got.severity, lsp);
       assert.equal(got.line, 5);
       assert.equal(got.col, 7);
     });
@@ -130,7 +129,7 @@ describe('fromLspDiagnostic — the 0-based to 1-based seam', () => {
       },
       ASCII_DOC,
     );
-    assert.equal(got.severity, 'warning');
+    assert.equal(got.severity, 2);
   });
 
   it('accepts a numeric rule code without inventing a rule table', () => {
@@ -170,7 +169,7 @@ describe('fromCliDiagnostic', () => {
         severity: 'style',
         message: 'm',
       }),
-      { rule: 'M-MOD-009', line: 2, col: 7, severity: 'style' },
+      { rule: 'M-MOD-009', line: 2, col: 7, severity: 3 },
     );
   });
 
@@ -193,10 +192,10 @@ describe('fromCliDiagnostic', () => {
 describe('sortDiagnostics', () => {
   it('orders by line, then column, then rule — stable across both producers', () => {
     const got = sortDiagnostics([
-      { rule: 'M-STY-001', line: 2, col: 7, severity: 'style' },
-      { rule: 'M-MOD-009', line: 2, col: 7, severity: 'style' },
-      { rule: 'M-XINDX-062', line: 1, col: 1, severity: 'info' },
-      { rule: 'M-MOD-024', line: 2, col: 1, severity: 'style' },
+      { rule: 'M-STY-001', line: 2, col: 7, severity: 3 },
+      { rule: 'M-MOD-009', line: 2, col: 7, severity: 3 },
+      { rule: 'M-XINDX-062', line: 1, col: 1, severity: 3 },
+      { rule: 'M-MOD-024', line: 2, col: 1, severity: 3 },
     ]);
     assert.deepEqual(
       got.map((d) => d.rule),
@@ -206,8 +205,8 @@ describe('sortDiagnostics', () => {
 
   it('does not mutate its input', () => {
     const input = [
-      { rule: 'B', line: 2, col: 1, severity: 'style' as const },
-      { rule: 'A', line: 1, col: 1, severity: 'style' as const },
+      { rule: 'B', line: 2, col: 1, severity: 3 },
+      { rule: 'A', line: 1, col: 1, severity: 3 },
     ];
     sortDiagnostics(input);
     assert.equal(input[0]?.rule, 'B');
@@ -215,8 +214,8 @@ describe('sortDiagnostics', () => {
 });
 
 describe('diffDiagnostics', () => {
-  const a = { rule: 'M-STY-001', line: 2, col: 7, severity: 'style' as const };
-  const b = { rule: 'M-MOD-009', line: 2, col: 7, severity: 'style' as const };
+  const a = { rule: 'M-STY-001', line: 2, col: 7, severity: 3 };
+  const b = { rule: 'M-MOD-009', line: 2, col: 7, severity: 3 };
 
   it('reports no differences for identical sets', () => {
     assert.deepEqual(diffDiagnostics([a, b], [b, a]), []);
@@ -245,7 +244,7 @@ describe('diffDiagnostics', () => {
   });
 
   it('catches a severity disagreement on an otherwise identical finding', () => {
-    const d = diffDiagnostics([a], [{ ...a, severity: 'error' }]);
+    const d = diffDiagnostics([a], [{ ...a, severity: 1 }]);
     assert.equal(d.length, 2);
   });
 

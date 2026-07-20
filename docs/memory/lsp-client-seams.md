@@ -91,3 +91,27 @@ fire in this repo** (a lowercase probe routine written through the Write tool
 came back unchanged). If that hook is ever wired here, it would silently
 uppercase `fixtures/format/ZZFMT.m` and the formatting assertion would start
 failing for a reason nothing in this repo explains.
+
+
+## Severity is MANY-TO-ONE on the wire — compare numbers, not recovered names
+
+`m lsp` publishes `style` **and** `info` as LSP Information (3). Style used to
+map to Hint (4), and that was a parity defect rather than a cosmetic one: VS
+Code renders Hint as a faint inline squiggle and **excludes it from the Problems
+panel**, so a finding `m lint --check` gates on was invisible where a user looks
+for it. (Ruled and implemented server-side in m-cli, 2026-07-20.)
+
+The consequence for this repo: **the LSP severity number can no longer be
+inverted to a severity name.** The equivalence gate therefore normalises in the
+direction the server itself converts — `m lint`'s name → the LSP number
+(`LSP_SEVERITY_FOR`) — and compares wire numbers on both sides. Recovering names
+from numbers made the gate red on a legitimate mapping while being no better at
+catching a real divergence.
+
+Still red-proofed after the change: restoring `style -> 4` reds it (rc 1), and
+flattening every published severity to 3 reds it (rc 1). Error and warning stay
+distinct, which is what the gate is actually protecting.
+
+**The general lesson, and it is the same one as the byte/UTF-16 column seam:
+normalise toward the producer's own representation, never invent an inverse for
+a lossy mapping.**

@@ -13,6 +13,7 @@
 // than pretending it verified something — same discipline as tree-sitter-m's
 // own ALLOW_MISSING_M_PARSE arm. Set STRICT_UPSTREAM=1 to make absence fatal.
 
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -64,6 +65,33 @@ if (!existsSync(upstream)) {
   if (process.env.STRICT_UPSTREAM === '1') fail(msg);
   else console.error(`check-wasm: ${msg}`);
 } else {
+  // Compare against upstream's COMMITTED HEAD, not its working tree.
+  //
+  // The working tree is a shared, mutable thing: another session editing
+  // tree-sitter-m's `dist/` reds this repo's gate for a change that does not
+  // exist yet — and the gate's own remedy (`make sync-wasm`) would then vendor
+  // UNCOMMITTED bytes into a released `.vsix`. Observed live 2026-07-20 during
+  // P4, with a concurrent grammar session mid-edit. Committed-HEAD reads are
+  // also what the org's local watcher does, for the same reason.
+  //
+  // `WASM_UPSTREAM_WORKTREE=1` restores the old behaviour for the one case it
+  // is right for: verifying a grammar change from inside tree-sitter-m before
+  // committing it.
+  const useWorktree = process.env.WASM_UPSTREAM_WORKTREE === '1';
+  const upstreamCommit = useWorktree ? 'the upstream WORKING TREE' : 'upstream HEAD';
+
+  const upstreamSha = (rel) => {
+    if (useWorktree) {
+      const path = join(upstream, rel);
+      return existsSync(path) ? sha(path) : undefined;
+    }
+    const show = spawnSync('git', ['-C', upstream, 'show', `HEAD:${rel}`], {
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    if (show.status !== 0) return undefined;
+    return createHash('sha256').update(show.stdout).digest('hex');
+  };
+
   for (const [rel, want] of Object.entries(source.files)) {
     if (rel === 'assets/source.json') continue;
     const upstreamRel = {
@@ -72,15 +100,17 @@ if (!existsSync(upstream)) {
       'assets/highlights.scm': 'queries/highlights.scm',
     }[rel];
     if (!upstreamRel) continue;
-    const path = join(upstream, upstreamRel);
-    if (!existsSync(path)) {
-      fail(`upstream file missing: ${path} — run \`make wasm\` in tree-sitter-m (never here)`);
+    const got = upstreamSha(upstreamRel);
+    if (got === undefined) {
+      fail(
+        `upstream file missing at ${upstreamCommit}: ${upstreamRel} — ` +
+          'run `make wasm` in tree-sitter-m (never here)',
+      );
       continue;
     }
-    const got = sha(path);
     if (got !== want) {
       fail(
-        `STALE — upstream ${upstreamRel} is ${got}, we ship ${want}. ` +
+        `STALE — upstream ${upstreamRel} is ${got} at ${upstreamCommit}, we ship ${want}. ` +
           'Upstream moved; run `make sync-wasm`, re-run the tests, and commit.',
       );
     }

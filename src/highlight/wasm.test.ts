@@ -14,11 +14,12 @@ test('loadGrammar loads the vendored artifact and reports what it loaded', async
   // Pins from the upstream manifest + a live measurement. These change only
   // when tree-sitter-m rebuilds, and check-wasm.mjs proves we re-synced.
   assert.equal(loaded.language.abiVersion, 15, 'tree-sitter ABI');
-  // 1020, not the 1019 quoted in the P1-upstream notes and the S1 spike: those
-  // were measured before `8a3c0b2` added the `_sp_comment` external token
-  // (EXTERNAL_TOKEN_COUNT 4 -> 5) on 2026-07-19. Upstream's own loader test
-  // asserts only `> 900`, so it did not catch the move. Measured here.
-  assert.equal(loaded.language.nodeTypeCount, 1020, 'node kinds');
+  // Measured, and re-measured on every re-sync. History of this ONE number:
+  // 1019 (S1 spike / P1-upstream notes) -> 1020 at `8a3c0b2` (the
+  // `_sp_comment` external token) -> 1170 at `0d41453` (IRIS abbreviations
+  // `$I`/`ZW`, regenerated from m-standard). Upstream's own loader test
+  // asserts only `> 900`, so it never notices; this pin is what does.
+  assert.equal(loaded.language.nodeTypeCount, 1170, 'node kinds');
   assert.equal(loaded.artifactSha256, manifest.artifact_sha256);
   assert.equal(loaded.grammarVersion, manifest.grammar_version);
   assert.ok(loaded.highlights.includes('@comment'), 'highlights.scm came along');

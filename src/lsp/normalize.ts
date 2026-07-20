@@ -30,12 +30,28 @@
 export const SEVERITY_NAMES = ['error', 'warning', 'info', 'style'] as const;
 export type SeverityName = (typeof SEVERITY_NAMES)[number];
 
-/** LSP `DiagnosticSeverity` is 1..4; `m lsp` maps style findings to 4 (Hint). */
-const LSP_SEVERITY: Record<number, SeverityName> = {
-  1: 'error',
-  2: 'warning',
-  3: 'info',
-  4: 'style',
+/**
+ * `m lint`'s severity NAME -> the LSP `DiagnosticSeverity` number the server
+ * publishes for it. This direction is deliberate.
+ *
+ * The mapping is many-to-one: `style` and `info` both publish as Information
+ * (3), because LSP's Hint (4) is rendered as a faint inline squiggle and is
+ * EXCLUDED from the Problems panel — a `style` finding that `m lint --check`
+ * gates on would be invisible there. (Ruled and implemented server-side in
+ * m-cli; the previous style -> Hint mapping was a parity defect, not a
+ * cosmetic choice.)
+ *
+ * Because it is many-to-one, the wire number CANNOT be inverted back to a
+ * name. So the equivalence gate compares in the space the server actually
+ * publishes — LSP numbers — deriving the expected number from `m lint`'s name
+ * exactly as the server does. Comparing recovered names instead would make the
+ * gate red on a legitimate mapping and, worse, unable to see a real one.
+ */
+export const LSP_SEVERITY_FOR: Record<SeverityName, number> = {
+  error: 1,
+  warning: 2,
+  info: 3,
+  style: 3,
 };
 
 /** A finding reduced to what both producers must agree on. */
@@ -45,7 +61,8 @@ export interface NormalDiagnostic {
   line: number;
   /** 1-based. */
   col: number;
-  severity: SeverityName;
+  /** LSP `DiagnosticSeverity` (1..4) — the wire value, not a recovered name. */
+  severity: number;
 }
 
 export interface LspDiagnosticLike {
@@ -110,7 +127,7 @@ export function fromLspDiagnostic(d: LspDiagnosticLike, documentText: string): N
     line,
     col: byteColumnFromUtf16(lineOf(documentText, line), d.range.start.character),
     // The LSP default when a server omits severity is Warning.
-    severity: LSP_SEVERITY[d.severity ?? 2] ?? 'warning',
+    severity: d.severity ?? 2,
   };
 }
 
@@ -119,7 +136,12 @@ export function fromCliDiagnostic(d: CliDiagnosticLike): NormalDiagnostic {
   if (!(SEVERITY_NAMES as readonly string[]).includes(d.severity)) {
     throw new Error(`unknown severity from m lint: ${d.severity}`);
   }
-  return { rule: d.rule, line: d.line, col: d.col, severity: d.severity as SeverityName };
+  return {
+    rule: d.rule,
+    line: d.line,
+    col: d.col,
+    severity: LSP_SEVERITY_FOR[d.severity as SeverityName],
+  };
 }
 
 function key(d: NormalDiagnostic): string {
@@ -132,7 +154,7 @@ export function sortDiagnostics(list: readonly NormalDiagnostic[]): NormalDiagno
     if (a.line !== b.line) return a.line - b.line;
     if (a.col !== b.col) return a.col - b.col;
     if (a.rule !== b.rule) return a.rule < b.rule ? -1 : 1;
-    return a.severity < b.severity ? -1 : a.severity > b.severity ? 1 : 0;
+    return a.severity - b.severity;
   });
 }
 
