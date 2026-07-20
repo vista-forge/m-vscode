@@ -1,0 +1,8 @@
+# Fixture project config for the ENCODING half of the equivalence gate.
+#
+# `all` so the fixture can fire several rules at several columns. The point of
+# this project is not the rule set but the TEXT: every finding below sits after
+# a multi-byte character, so a byte column and a UTF-16 column are different
+# numbers and a gate can finally tell them apart (T1-2 / T1-3).
+[lint]
+rules = "all"

@@ -20,6 +20,7 @@ import {
 import { Debouncer } from '../lsp/debounce.js';
 import { missingServerMessage, type SyncMode, syncDecision } from '../lsp/policy.js';
 import { type MSettings, resolveSettings, serverLaunch } from '../lsp/settings.js';
+import { saveActions } from '../lsp/sync.js';
 
 export const CONFIG_SECTION = 'mLanguageTools';
 
@@ -120,14 +121,20 @@ export async function startClient(
       },
       didSave: (doc, next) => {
         const key = doc.uri.toString();
-        debouncer.cancel(key);
-        // A large document was never streamed; send its final text on save so
-        // the diagnostics the user sees still match what `m lint` would report.
-        if (modes.get(key) === 'on-save') {
-          void client.sendNotification('textDocument/didChange', {
-            textDocument: { uri: key, version: doc.version },
-            contentChanges: [{ text: doc.getText() }],
-          });
+        // T1-9: FLUSH the pending change, never cancel it. Saving inside the
+        // debounce window used to drop the last keystrokes, so the server
+        // linted stale text at the exact moment parity matters most.
+        for (const action of saveActions(modes.get(key) ?? 'live')) {
+          if (action === 'flush-pending') {
+            debouncer.flush(key);
+          } else {
+            // A large document was never streamed; send its final text on save
+            // so the diagnostics the user sees still match `m lint`.
+            void client.sendNotification('textDocument/didChange', {
+              textDocument: { uri: key, version: doc.version },
+              contentChanges: [{ text: doc.getText() }],
+            });
+          }
         }
         return next(doc);
       },

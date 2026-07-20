@@ -1,0 +1,8 @@
+# Fixture project config for the FORMATTING half of the equivalence gate.
+#
+# Pinned HERE, not on a command line: `[fmt] rules` is the only thing `m lsp`
+# and `m fmt` both read, so it is what makes format-on-save and CI formatting
+# the same operation by construction. Without it both sides resolve identity
+# and the gate would compare two no-ops — green, and proving nothing.
+[fmt]
+rules = "canonical"
