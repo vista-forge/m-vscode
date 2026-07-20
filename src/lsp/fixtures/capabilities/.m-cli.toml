@@ -1,0 +1,7 @@
+# Fixture project config for the hover/completion/documentSymbol/folding gate
+# (P3-feat Session B). The lint profile does not matter here — this fixture
+# exercises the language-INTELLIGENCE handlers, not diagnostics — but every
+# fixture project carries one so config discovery never falls back to an
+# ambient default no one can see.
+[lint]
+rules = "default"

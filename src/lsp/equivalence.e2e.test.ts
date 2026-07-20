@@ -162,12 +162,18 @@ describe('LSP client / m lint equivalence (e2e, real toolchain)', () => {
     assert.equal(JSON.stringify(p.viaLsp), JSON.stringify(p.viaCli));
   });
 
-  it('advertises only the capabilities this tier relies on (hover/completion are later)', () => {
+  it('advertises the full P3-feat capability set (Session A landed, m-cli ed9a4ec)', () => {
     const caps = p.session.capabilities as Record<string, unknown>;
     assert.equal(caps.textDocumentSync, 1, 'full document sync');
     assert.equal(caps.documentFormattingProvider, true);
-    assert.equal(caps.hoverProvider, undefined);
-    assert.equal(caps.completionProvider, undefined);
+    assert.equal(caps.hoverProvider, true);
+    assert.deepEqual(
+      caps.completionProvider,
+      { resolveProvider: false },
+      'no resolve step — completion items arrive fully populated',
+    );
+    assert.equal(caps.documentSymbolProvider, true);
+    assert.equal(caps.foldingRangeProvider, true);
   });
 
   /**

@@ -15,7 +15,6 @@ import {
   LanguageClient,
   type LanguageClientOptions,
   type ServerOptions,
-  TransportKind,
 } from 'vscode-languageclient/node.js';
 import { Debouncer } from '../lsp/debounce.js';
 import { missingServerMessage, type SyncMode, syncDecision } from '../lsp/policy.js';
@@ -84,10 +83,24 @@ export async function startClient(
     return undefined;
   }
 
+  // Deliberately NO `transport: TransportKind.stdio` here. For an
+  // `Executable`-shaped `ServerOptions` (command + args, no `module`),
+  // vscode-languageclient only APPENDS `--stdio` to argv when `transport` is
+  // set to `TransportKind.stdio` EXPLICITLY — that flag exists for servers
+  // that support multiple transports and need to be told which one to use.
+  // Leaving `transport` undefined still spawns over stdio (it is the
+  // default for this shape), but sends the args as configured, unmodified.
+  // `m lsp` has no `--stdio` flag — it is always stdio — so the explicit
+  // form used to make the real server exit immediately with a USAGE error
+  // ("unknown flag --stdio"), which `vscode-languageclient` then reported as
+  // "Pending response rejected since connection got disposed" with no
+  // indication anywhere that the flag was the cause. Caught only by
+  // `src/smoke/suite.ts` driving a REAL VS Code + the real server — the
+  // equivalence gate never could, because it talks to `m lsp` directly
+  // (`session.ts`), never through this client.
   const serverOptions: ServerOptions = {
     command: launch.command,
     args: launch.args,
-    transport: TransportKind.stdio,
   };
 
   const debouncer = new Debouncer(settings.debounceMs);

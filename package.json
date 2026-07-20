@@ -38,7 +38,9 @@
     "vscode:prepublish": "npm run bundle:release",
     "vsix": "vsce package --no-dependencies",
     "sync-wasm": "node scripts/sync-wasm.mjs",
-    "check-wasm": "node scripts/check-wasm.mjs"
+    "check-wasm": "node scripts/check-wasm.mjs",
+    "bundle:smoke": "esbuild src/smoke/suite.ts --bundle --outfile=dist/smoke-suite.cjs --external:vscode --platform=node --format=cjs",
+    "test:vscode": "npm run bundle && npm run bundle:smoke && node --import tsx src/smoke/run.ts"
   },
   "license": "AGPL-3.0",
   "author": "Rafael Richards",

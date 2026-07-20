@@ -8,57 +8,21 @@ trade-offs, things tried and reverted, and explicit deferrals.
 
 ## 2026-07-19 — P0 scaffold
 
-**Done.** Repo scaffolded from the vista-compass/vista-atlas house pattern
-(Node 24, TypeScript ESM, Biome, `node:test` + tsx, c8, esbuild, vsce,
-simple-git-hooks); offline `make check` gate wired (shared `vuln-scan.sh` +
-`docs-gate`); `mumps` language registered with extensions `.m`/`.mac`/`.int`
-(broader than compass's `.m`, matching tree-sitter-m's own file types);
-activation smoke command `mVscode.showStatus`.
-
-**Shape decision.** `src/lang/contribution.ts` is the source of truth for the
-language registration and `package.json` is a projection of it, red-gated by
-`contribution.test.ts`. A manifest block nobody tests is exactly the kind of
-fact that rots; this makes drift a failing test rather than a bug report.
-
-**Deferred.** WASM highlighting (P1), LSP client (P2), hover/symbols (P3),
-Test Explorer + coverage gutters (P4). No GitHub remote yet — the operator
-creates it; commits are local until then.
+Scaffolded from the vista-compass/vista-atlas house pattern: TS/ESM, esbuild,
+Biome, node:test + c8, @vscode/vsce, Node 24. Registered the `mumps` language
+id (D2) and the AGPL-3.0 license (D5, the extension bundles the AGPL
+tree-sitter-m WASM from P1 onward). Non-waterline, registered in
+`repos.txt`.
 
 ## 2026-07-19 — P2 language client
 
-**Done.** `vscode-languageclient` wired to the already-shipping `m lsp` over
-stdio: live diagnostics and formatting (so `editor.formatOnSave` works) for
-`mumps` documents. Settings for enable/server path/server args/lint profile,
-plus the R3 knobs. `M: Restart Language Server` added, and a settings change
-restarts the client rather than requiring a window reload.
-
-**The acceptance bar.** `src/lsp/equivalence.e2e.test.ts` runs `m lint -o json`
-and a headless `m lsp` session over the same fixture project and requires an
-identical multiset of (rule, line, column, severity), then an identical
-serialisation. It runs inside `make check` and **fails, never skips**, when `m`
-is absent — a skipped equivalence proof is not a passed one. Red-proved by
-flipping the 0→1-based conversion.
-
-**Two seams found while building it** (detail: `docs/memory/lsp-client-seams.md`).
-`m lint` resolves `.m-cli.toml` from its **CWD** while `m lsp` resolves it from
-the **document's directory** — running the CLI from the repo root reported 0
-findings where the server reported 20, which would have made a "green" gate
-meaningless. And `m lsp` hardcodes canonical formatting instead of honouring
-`[fmt] rules`. Both are P3 asks on m-cli; neither is worked around here.
-
-**R3 mitigation is client-side and deliberate.** Debounced `didChange` (300 ms)
-plus an on-save-only mode for documents ≥ 256 KiB, announced in the output
-channel. No `$/cancelRequest` — the server does not honour it yet, and a client
-pretending otherwise would be worse than one that waits.
-
-**New gate.** `scripts/verify-bundle.mjs`: the packaged bundle must contain the
-language client and `require()` nothing outside Node builtins + `vscode`. An
-unbundled runtime dep produces a `.vsix` that installs cleanly and then does
-nothing — a failure mode no other gate in this repo can see.
-
-**Thin client held.** Zero M semantics added: rule ids are opaque strings, and
-the only M-adjacent knowledge is the LSP severity enum, which the equivalence
-gate pins.
+Wired `vscode-languageclient` to `m lsp` over stdio: diagnostics and
+format-on-save. The equivalence gate (`equivalence.e2e.test.ts`) drives a
+real `m lsp` and a real `m lint` and requires the two to agree — the
+extension's core promise. Tier 1 hardening closed three parity defects the
+gate could not originally catch (byte vs UTF-16 columns, per-file config
+resolution, unverified formatting) — see `docs/memory/lsp-client-seams.md`
+for the full account.
 
 ## 2026-07-20
 
@@ -87,3 +51,59 @@ neither red this gate nor have its uncommitted bytes vendored into a release
 equivalence gate now compares LSP severity NUMBERS, because m lsp publishes both
 style and info as Information (3) and the wire value can no longer be inverted
 to a name. v0.1.0 -> v0.2.0.
+
+## 2026-07-20
+
+P3-feat Session B — wire the m lsp client to hover, completion, documentSymbol
+and foldingRange. `vscode-languageclient`'s built-in features (HoverFeature,
+CompletionItemFeature, DocumentSymbolFeature, FoldingRangeFeature) already
+register VS Code providers from the server's advertised capabilities with no
+extra client code needed — confirmed by reading `registerBuiltinFeatures` in
+the library itself. The equivalence gate's capability assertion (previously
+pinning hover/completion ABSENT, correct through P2) now pins the P3-feat set
+present and its exact shape; red-proofed (rc 1 -> 0). Added
+`capabilities.e2e.test.ts`, extending the headless `LspSession` with
+hover/completion/documentSymbol/foldingRange methods, proving each answers
+with real content over the wire — including the per-engine provenance
+sentence on `$ZATRANSFORM` verbatim from the server, never reworded
+client-side.
+
+Added a real VS Code smoke suite (`src/smoke/`, `@vscode/test-electron`
+against the installed `/usr/share/code/code`, no download) driving
+`vscode.execute{Hover,CompletionItem,DocumentSymbol,FoldingRange}Provider`
+against the bundled extension end to end — the first time this extension has
+run inside a real Extension Host. It immediately found a genuine defect:
+`client.ts` set `transport: TransportKind.stdio` explicitly in
+`ServerOptions`, which makes `vscode-languageclient` append `--stdio` to the
+server's argv (a convention for servers that support multiple transports).
+`m lsp` has no such flag and exited with a USAGE error, which
+`vscode-languageclient` surfaced only as an opaque "Pending response rejected
+since connection got disposed" — no indication anywhere that the flag was
+the cause. Fixed by omitting `transport` (stdio is already this
+`ServerOptions` shape's default, without the flag). Red-proofed against the
+smoke suite itself (rc 1 -> 0): planting `transport: TransportKind.stdio`
+back reproduces the exact original crash.
+
+While investigating, also found (by code review, not by reproduction) that
+`extension.ts`'s `restart()` had no reentrancy guard — a `didChangeConfiguration`
+event racing the initial activation restart could dispose a still-starting
+client. The smoke suite's output-channel capture confirms this did NOT
+actually fire during the `--stdio` repro (`started \`m lsp\`` appears exactly
+once), so it was not the cause of the observed crash — but it is a real
+latent hazard, closed on principle (`src/ext/serialize.ts`, unit-tested) since
+a silently dead extension is exactly the failure class this repo forbids. The
+smoke suite now asserts the client starts exactly once, as a permanent
+regression guard.
+
+`positionEncoding: utf-16` confirmed negotiated correctly:
+`vscode-languageclient` 9.0.1 hardcodes `general.positionEncodings =
+['utf-16']` in its client capabilities and throws if a server ever advertises
+anything else — so the existing UTF-16 column gates in `normalize.ts` needed
+no change.
+
+`make check` green and offline throughout (rc 0); `make release` produces a
+verified `.vsix`. Version stays v0.2.0 — the coordinator's `v0.2.0` tag
+already points at this line of work in progress, and both the version bump
+and any tagging decision stay explicit operator actions, per the kickoff's
+"do not bump to 1.0 — that is an explicit operator decision after §8 is
+verified."

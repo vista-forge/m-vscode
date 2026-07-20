@@ -28,6 +28,48 @@ export interface TextEdit {
   newText: string;
 }
 
+export interface LspPosition {
+  line: number;
+  character: number;
+}
+
+export interface LspRange {
+  start: LspPosition;
+  end: LspPosition;
+}
+
+export interface MarkupContent {
+  kind: string;
+  value: string;
+}
+
+export interface HoverResult {
+  contents: MarkupContent;
+  range?: LspRange;
+}
+
+export interface CompletionItemResult {
+  label: string;
+  kind?: number;
+  detail?: string;
+  documentation?: MarkupContent | string;
+  sortText?: string;
+}
+
+export interface DocumentSymbolResult {
+  name: string;
+  kind: number;
+  range: LspRange;
+  selectionRange: LspRange;
+  children?: DocumentSymbolResult[];
+}
+
+export interface FoldingRangeResult {
+  startLine: number;
+  endLine: number;
+  kind?: string;
+}
+
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 export class LspSession {
@@ -90,6 +132,47 @@ export class LspSession {
       options: { tabSize: 1, insertSpaces: true },
     });
     return (result ?? []) as TextEdit[];
+  }
+
+  /**
+   * P3-feat Session B. These four exist ONLY to prove, against the real
+   * server, that hover/completion/documentSymbol/foldingRange answer with
+   * real content over the wire — this session is the headless stand-in for
+   * `vscode-languageclient`'s built-in features (HoverFeature,
+   * CompletionItemFeature, DocumentSymbolFeature, FoldingRangeFeature), which
+   * the shipped extension relies on instead of hand-rolling any of this.
+   */
+
+  async hover(path: string, position: LspPosition): Promise<HoverResult | null> {
+    const result = await this.request('textDocument/hover', {
+      textDocument: { uri: pathToFileURL(path).href },
+      position,
+    });
+    return (result ?? null) as HoverResult | null;
+  }
+
+  async completion(path: string, position: LspPosition): Promise<CompletionItemResult[]> {
+    const result = await this.request('textDocument/completion', {
+      textDocument: { uri: pathToFileURL(path).href },
+      position,
+    });
+    if (Array.isArray(result)) return result as CompletionItemResult[];
+    const list = result as { items?: CompletionItemResult[] } | null;
+    return list?.items ?? [];
+  }
+
+  async documentSymbol(path: string): Promise<DocumentSymbolResult[]> {
+    const result = await this.request('textDocument/documentSymbol', {
+      textDocument: { uri: pathToFileURL(path).href },
+    });
+    return (result ?? []) as DocumentSymbolResult[];
+  }
+
+  async foldingRange(path: string): Promise<FoldingRangeResult[]> {
+    const result = await this.request('textDocument/foldingRange', {
+      textDocument: { uri: pathToFileURL(path).href },
+    });
+    return (result ?? []) as FoldingRangeResult[];
   }
 
   async stop(): Promise<void> {

@@ -4,6 +4,7 @@ import { statusText } from '../lsp/policy.js';
 import { CONFIG_SECTION, type MLanguageClient, readSettings, startClient } from './client.js';
 import { registerEngineStatus } from './engine-status.js';
 import { registerExecuteSelection } from './exec.js';
+import { serialize } from './serialize.js';
 import { statusMessage } from './status.js';
 import { registerTesting } from './testing.js';
 
@@ -69,12 +70,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   await restart();
 }
 
-async function restart(): Promise<void> {
+/**
+ * Serialized so a `didChangeConfiguration` event racing the initial
+ * activation restart (or two rapid settings edits) can never dispose a
+ * still-starting client out from under itself — see `serialize.ts`, and the
+ * real-VS-Code failure it was written to fix.
+ */
+const restart = serialize(async (): Promise<void> => {
   await running?.dispose();
   running = undefined;
   if (!output) return;
   running = await startClient(readSettings(), output);
-}
+});
 
 export async function deactivate(): Promise<void> {
   await running?.dispose();
