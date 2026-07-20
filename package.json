@@ -50,13 +50,8 @@
     "@vscode/vsce": "^3.9.2",
     "c8": "^11.0.0",
     "esbuild": "^0.28.1",
-    "simple-git-hooks": "^2.11.1",
     "tsx": "^4.19.2",
     "typescript": "^6.0.3"
-  },
-  "simple-git-hooks": {
-    "pre-commit": "npm run lint && npm run typecheck",
-    "pre-push": "npm run test:cov"
   },
   "repository": {
     "type": "git",

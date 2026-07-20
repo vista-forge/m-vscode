@@ -71,10 +71,11 @@ vista-compass from a session in this repo.
 
 Node 24 (`.node-version`, `.npmrc` `engine-strict=true`), TypeScript ESM,
 Biome (lint + format), `node:test` + `tsx`, `c8` coverage, esbuild bundle,
-`@vscode/vsce` packaging, `simple-git-hooks`.
+`@vscode/vsce` packaging. Git hooks are **not** managed per-repo (no
+`simple-git-hooks`/husky/lefthook) — see "Git hooks" under Git, below.
 
 ```bash
-make install     # npm install + hooks
+make install     # npm install (git hooks are org-managed, not per-repo)
 make test        # fast inner loop
 make test-watch  # TDD mode
 make check       # THE GATE: check-wasm + lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate
@@ -131,3 +132,16 @@ for any `vsce package` invocation, not just `make release`. Tagging a release
 Trunk-based per the org Increment Protocol: gates green locally, then commit
 straight to `main`. The GitHub remote (`vista-forge/m-vscode`) exists and is
 wired, so verified increments push.
+
+### Git hooks are org-managed, not per-repo
+
+`core.hooksPath` points every repo at the shared `~/vista-forge/.github/githooks`;
+its `pre-push` runs this repo's `make check` before a push leaves the machine
+(wired by `.github/scripts/install/install-githooks.sh`). Do **not** add a
+per-repo hook installer (`simple-git-hooks`, husky, lefthook, `pre-commit
+install`, …) — it would write into that same shared `core.hooksPath` and
+overwrite the org-wide gate for every other repo. This happened once: a
+`make release` here (which ran `make hooks` → `simple-git-hooks`) clobbered the
+org pre-push and broke the `docs` repo's next push (`npm ENOENT`) until it was
+restored from git. See `~/vista-forge/docs/memory/local-first-ci.md`. Removed
+2026-07-19.

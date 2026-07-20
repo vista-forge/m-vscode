@@ -3,14 +3,16 @@
 NPM := npm
 BIN := ./node_modules/.bin
 
-.PHONY: install hooks test test-watch test-cov lint format fix typecheck audit vuln check build bundle release-bundle verify-bundle vsix vsix-verify release clean push pull log docs-gate sync-wasm check-wasm
+.PHONY: install test test-watch test-cov lint format fix typecheck audit vuln check build bundle release-bundle verify-bundle vsix vsix-verify release clean push pull log docs-gate sync-wasm check-wasm
 
+# Git hooks are NOT managed here — the org's pre-push gate (core.hooksPath ->
+# .github/githooks) already dispatches to `make check` per repo. A per-repo
+# hook installer (simple-git-hooks et al.) would write into that SAME shared
+# hooksPath and clobber the org-wide pre-push gate for every other repo — see
+# ~/vista-forge/docs/memory/local-first-ci.md. Hook install is org-level:
+# .github/scripts/install/install-githooks.sh.
 install:
 	$(NPM) install
-	$(MAKE) hooks
-
-hooks:
-	$(BIN)/simple-git-hooks
 
 test:
 	$(NPM) run test
@@ -115,7 +117,6 @@ vsix-verify: vsix
 # never a dependency of `check` — packaging is not a gate.
 release: clean
 	$(NPM) ci
-	$(MAKE) hooks
 	$(MAKE) check
 	$(MAKE) release-bundle
 	$(MAKE) verify-bundle
