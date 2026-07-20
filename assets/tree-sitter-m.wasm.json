@@ -1,16 +1,16 @@
 {
   "schema_version": "1",
   "artifact": "tree-sitter-m.wasm",
-  "artifact_sha256": "acc9059e9db11c9ad5c71add7178628cecceb37101b17ce76f5c6742a26b83de",
-  "artifact_bytes": 479626,
+  "artifact_sha256": "064a8aef70965ba8d5d990453cc14ef5fb410a786302f2aae4b43e5f00271235",
+  "artifact_bytes": 481210,
   "abi": "web-tree-sitter (standard export set)",
-  "grammar_version": "0.1.2",
+  "grammar_version": "0.2.0",
   "toolchain": {
     "tree_sitter_cli": "0.25.10",
     "emsdk_image": "emscripten/emsdk:4.0.4"
   },
   "sources": {
-    "src/parser.c": "d1968530a3a37b744d388b1341fa3acae9e5b815f0fcc4191c644a2f53d160a5",
+    "src/parser.c": "486ac76e411e6c04a62224e062f8d23c997474da6f38de4e8a10bed3a19640a4",
     "src/scanner.c": "725316b44f47520e7c01d0600cd5b51ffbde737ed993198fb7ff3784c4ddcd2c",
     "src/tree_sitter/parser.h": "180b893c8734778fd32f372dfbc27bd6ad1cd2221f26150b31256ff6716320d2",
     "src/tree_sitter/alloc.h": "b29c1c9fb7cc82f58c84b376df1297d6e2737a1d655fd356db0859e3c29c2fea",
