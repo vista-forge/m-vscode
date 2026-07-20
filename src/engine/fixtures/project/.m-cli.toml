@@ -1,0 +1,14 @@
+# Fixture project for the P4 engine features — used by the LIVE dual-engine
+# acceptance run (`m test` / `m coverage` from the Test Explorer), never by
+# `make check` (which fakes the `m` CLI at the process boundary).
+[lint]
+rules = "modern"
+target_engine = "any"
+
+[fmt]
+rules = "identity"
+
+[dependencies]
+# The suite under test plus ^STDASSERT. Sibling-repo path, same assumption
+# `make check-wasm` already makes about ../tree-sitter-m.
+routines = [".", "../../../../../m-stdlib/src"]

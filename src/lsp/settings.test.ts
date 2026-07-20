@@ -144,8 +144,15 @@ describe('package.json configuration contribution', () => {
     'mLanguageTools.diagnostics.largeFileBytes': DEFAULT_SETTINGS.largeFileBytes,
   };
 
-  it('contributes exactly the settings the code reads — no more, no less', () => {
-    assert.deepEqual(Object.keys(props).sort(), Object.keys(expected).sort());
+  // Every key here must be contributed. The converse — that the manifest
+  // contributes nothing NOBODY reads — is asserted once, over the union of the
+  // language-server and engine settings, in `src/engine/manifest.test.ts`
+  // (P4 added a second family of settings; two exhaustive lists would each
+  // have to know about the other's keys).
+  it('contributes every setting the code reads', () => {
+    for (const key of Object.keys(expected)) {
+      assert.ok(key in props, `package.json is missing ${key}`);
+    }
   });
 
   for (const [key, want] of Object.entries(expected)) {

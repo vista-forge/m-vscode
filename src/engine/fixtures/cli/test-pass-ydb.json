@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "command": "test <paths>",
+  "ok": true,
+  "exit": 0,
+  "data": {
+    "engine": "ydb",
+    "suites": 1,
+    "passed": 3,
+    "failed": 0,
+    "results": [
+      {
+        "suite": "ZZMVSMATHTST",
+        "tier": "pure-logic",
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "cases": 2,
+        "ok": true,
+        "tests": [
+          {
+            "label": "tAdd",
+            "passed": 2,
+            "failed": 0
+          },
+          {
+            "label": "tDbl",
+            "passed": 1,
+            "failed": 0
+          }
+        ]
+      }
+    ]
+  }
+}

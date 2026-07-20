@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "command": "test <paths>",
+  "ok": false,
+  "exit": 3,
+  "data": {
+    "engine": "ydb",
+    "suites": 1,
+    "passed": 0,
+    "failed": 1,
+    "results": [
+      {
+        "suite": "ZZMVSREDTST",
+        "tier": "pure-logic",
+        "passed": 0,
+        "failed": 1,
+        "total": 1,
+        "cases": 1,
+        "ok": false,
+        "tests": [
+          {
+            "label": "tBad",
+            "passed": 0,
+            "failed": 1
+          }
+        ],
+        "failures": [
+          {
+            "description": "1+2 should be 99",
+            "expected": "=99",
+            "actual": "=3"
+          }
+        ]
+      }
+    ]
+  },
+  "error": {
+    "code": "TESTS_FAILED",
+    "exit": 3,
+    "message": "1 of 1 suite(s) failed"
+  }
+}

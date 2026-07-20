@@ -2,7 +2,10 @@ import * as vscode from 'vscode';
 import { registerHighlighting } from '../highlight/provider.js';
 import { statusText } from '../lsp/policy.js';
 import { CONFIG_SECTION, type MLanguageClient, readSettings, startClient } from './client.js';
+import { registerEngineStatus } from './engine-status.js';
+import { registerExecuteSelection } from './exec.js';
 import { statusMessage } from './status.js';
+import { registerTesting } from './testing.js';
 
 /**
  * Activation: register the status command and start the `m lsp` client.
@@ -55,6 +58,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // missing or broken `m` binary must not cost the user their colours, and a
   // missing grammar must not cost them diagnostics.
   await registerHighlighting(context, output);
+
+  // Engine features (P4). Independent of both the grammar and the language
+  // server: they shell out to the `m` CLI, which owns the driver seam. A
+  // missing `m` costs the user their tests, not their colours or diagnostics.
+  registerTesting(context, output);
+  registerExecuteSelection(context);
+  registerEngineStatus(context);
 
   await restart();
 }

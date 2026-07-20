@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "command": "vista status",
+  "ok": true,
+  "exit": 0,
+  "data": {
+    "transport": "local",
+    "running": false,
+    "healthy": false,
+    "latencyMs": 0,
+    "endpoint": "local:IRIS/VISTA"
+  }
+}

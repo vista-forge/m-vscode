@@ -20,9 +20,16 @@ yourself writing an M tokenizer, a lint rule, or an engine call here, stop: it
 belongs in `tree-sitter-m` or `m-cli`, and the fix is a toolchain change plus a
 version bump here.
 
-Corollary: **never reach an M engine from this repo.** P4's engine features
-shell out to the `m` CLI, which owns the driver seam
-(m-driver-sdk → m-ydb/m-iris). No transport is hand-rolled here.
+Corollary: **never reach an M engine from this repo.** The engine features
+(Test Explorer, coverage, execute-selection, status chip) shell out to the `m`
+CLI, which owns the driver seam (m-driver-sdk → m-ydb/m-iris). No transport is
+hand-rolled here.
+
+**`src/engine/run.ts` is the only module that starts a process**, and the only
+process it starts is `m`. Keep it that way: a `docker exec`, a `mumps -direct`,
+an `iris session` or a driver-binary call anywhere in this repo is a red gate
+(org `CLAUDE.md`, waterline rule 3; a `PreToolUse` hook denies them too).
+Command lines live in `src/engine/argv.ts` — one place, all four verbs.
 
 ## Org placement
 
@@ -55,6 +62,13 @@ no tree-sitter-m checkout beside this repo it prints a loud UNVERIFIED banner
 and passes (`STRICT_UPSTREAM=1` makes absence fatal) — it never pretends to
 have verified staleness it could not see.
 
+Staleness is measured against tree-sitter-m's **committed HEAD**, not its
+working tree: a concurrent session editing that repo must not red this repo's
+gate for a change that does not exist yet, and its remedy (`make sync-wasm`)
+must never vendor uncommitted bytes into a release. `WASM_UPSTREAM_WORKTREE=1`
+selects the working tree for the one case that wants it — validating a grammar
+change from inside tree-sitter-m before committing it.
+
 ## Language-registration ownership (D2)
 
 This repo is the owner of the `mumps` language id. `src/lang/contribution.ts`
@@ -79,6 +93,7 @@ make install     # npm install (git hooks are org-managed, not per-repo)
 make test        # fast inner loop
 make test-watch  # TDD mode
 make check       # THE GATE: check-wasm + lint + typecheck + test-cov + vuln + bundle + verify-bundle + docs-gate
+                 # (offline AND engine-free — the engine features run against a fake `m`)
 make sync-wasm   # re-vendor the tree-sitter-m artifacts (CONSUME, never rebuild)
 make check-wasm  # vendored grammar intact + not stale vs ../tree-sitter-m
 make vsix        # package the extension (vsce's own `vscode:prepublish` hook
@@ -120,9 +135,22 @@ for any `vsce package` invocation, not just `make release`. Tagging a release
   green. Tests sit beside source (`foo.ts` ↔ `foo.test.ts`), table-driven.
 - Source imports use `.js` specifiers (tsc NodeNext); test files import `.ts`.
   This is the house pattern — see vista-compass.
-- Extension-host code (`src/ext/extension.ts`) stays thin glue; put anything
-  worth testing in a pure module so it is testable without an extension host
-  (`src/ext/status.ts` is the pattern).
+- Extension-host code (`src/ext/*.ts`) stays thin glue; put anything worth
+  testing in a pure module so it is testable without an extension host
+  (`src/ext/status.ts` and all of `src/engine/*` are the pattern).
+- **Manifest blocks are projections, red-gated.** `contributes.languages` ←
+  `src/lang/contribution.ts`; `contributes.commands` + the engine settings ←
+  `src/engine/contribution.ts` (`src/engine/manifest.test.ts` asserts the
+  manifest contributes exactly what the code reads — no orphan setting, no
+  command nothing registers).
+- **Engine work is gated offline.** `src/engine/fixtures/cli/` holds recorded
+  real `m` output; `run.test.ts` and `engine.e2e.test.ts` drive a **fake `m`
+  executable**. Never make `make check` need a live engine. The dual-engine
+  acceptance run is performed and reported separately.
+- **No silent failure in the UI.** An empty test list, a 0% coverage render, or
+  a blank status chip must never stand in for an error. Every failure path
+  produces a message naming what broke AND what to do; `failure.test.ts` and
+  `engine.e2e.test.ts` assert both halves are non-empty.
 - No `any`; `noUncheckedIndexedAccess` is on; ESM only; 2-space, single quotes,
   100 cols (Biome decides — don't argue with it).
 - Commit `package.json` and `package-lock.json` together.

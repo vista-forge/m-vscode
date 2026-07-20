@@ -63,3 +63,27 @@ gate pins.
 ## 2026-07-20
 
 P1-downstream: AST syntax highlighting. Semantic-tokens provider over the vendored tree-sitter-m WASM grammar (consumed from upstream, never rebuilt); capture-mapping coverage gated from highlights.scm itself; R1 typing-session fixture (183 keystroke steps, 26 with ERROR trees) forbidding crash/hang/tree-collapse/colour-loss; check-wasm staleness gate; grammar assets asserted inside the .vsix.
+
+## 2026-07-20
+
+P4 — engine features. Test Explorer over "m test -o json" (suites from *TST.m,
+per-@TEST cases, failed assertions with expected/actual, engine faults with
+routine + line + mnemonic); coverage gutters from real "m coverage --lcov"
+output; "M: Execute Selection on the Engine" over "m vista exec" into its own
+output channel; an engine status chip from "m vista status" that says UNKNOWN
+rather than implying health it did not verify. Every engine call shells out to
+the m CLI - src/engine/run.ts is the only process boundary in the repo, and the
+only process it starts is m. Offline gate: recorded real CLI output in
+src/engine/fixtures/cli/ plus a fake m executable, so make check needs no engine
+and no network. Live dual-engine acceptance green on vehu (YottaDB) and foia-t12
+(IRIS): 3/3 assertions, 2/2 cases, coverage 2/2 lines with real gutter data,
+exec and status both healthy.
+
+Also: re-vendored the tree-sitter-m grammar at 0d41453 (IRIS abbreviations, node
+kinds 1020 -> 1170); check-wasm now compares against tree-sitter-m's committed
+HEAD rather than its working tree, so a concurrent session editing that repo can
+neither red this gate nor have its uncommitted bytes vendored into a release
+(WASM_UPSTREAM_WORKTREE=1 restores the old behaviour); the diagnostic
+equivalence gate now compares LSP severity NUMBERS, because m lsp publishes both
+style and info as Information (3) and the wire value can no longer be inverted
+to a name. v0.1.0 -> v0.2.0.

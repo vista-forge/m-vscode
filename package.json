@@ -1,7 +1,7 @@
 {
   "name": "m-vscode",
-  "version": "0.1.0",
-  "description": "M Language Tools (MUMPS) \u2014 VS Code extension for pure, portable M: language registration, tree-sitter syntax, and an LSP client over `m lsp`. No VistA required.",
+  "version": "0.2.0",
+  "description": "M Language Tools (MUMPS) \u2014 VS Code extension for pure, portable M: language registration, tree-sitter syntax, an LSP client over `m lsp`, and Test Explorer / coverage / engine execution over the `m` CLI. No VistA required.",
   "type": "module",
   "main": "./dist/extension.cjs",
   "types": "./dist/index.d.ts",
@@ -74,8 +74,25 @@
       {
         "command": "mVscode.restartServer",
         "title": "M: Restart Language Server"
+      },
+      {
+        "command": "mVscode.executeSelection",
+        "title": "M: Execute Selection on the Engine"
+      },
+      {
+        "command": "mVscode.checkEngine",
+        "title": "M: Check Engine Status"
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "mVscode.executeSelection",
+          "when": "editorLangId == mumps",
+          "group": "z_commands"
+        }
+      ]
+    },
     "configuration": {
       "title": "M Language Tools",
       "properties": {
@@ -127,6 +144,31 @@
           "default": 262144,
           "minimum": 0,
           "markdownDescription": "Documents this size or larger are linted **on save only**, not as you type \u2014 a 1 MB routine costs seconds per lint. Set to `0` to always lint live. The chosen mode is announced in the *M Language Tools* output channel."
+        },
+        "mLanguageTools.engine": {
+          "type": "string",
+          "enum": [
+            "ydb",
+            "iris"
+          ],
+          "default": "ydb",
+          "markdownDescription": "Which M engine the Test Explorer, coverage, and *Execute Selection* reach, via `m --engine`. The extension never talks to an engine directly \u2014 every engine operation shells out to the `m` CLI, which owns the driver seam."
+        },
+        "mLanguageTools.docker": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Name of a running Docker container holding the engine (e.g. `vehu` for YottaDB, `foia-t12` for IRIS). Passed as `m --docker`. Leave empty to let the driver resolve the connection from its own `M_<ENGINE>_*` environment."
+        },
+        "mLanguageTools.namespace": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "IRIS namespace for test and coverage runs (`m --namespace`). Ignored for YottaDB. Leave empty for the CLI default."
+        },
+        "mLanguageTools.engine.lockWaitSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "markdownDescription": "How long *Execute Selection* waits for the engine run-lock before giving up and naming the holder. `0` means do not wait. The wait is always bounded \u2014 a run-lock must never look like a hang."
         }
       }
     },

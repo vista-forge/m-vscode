@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "command": "test <paths>",
+  "ok": false,
+  "exit": 1,
+  "error": {
+    "code": "STAGE_FAILED",
+    "exit": 1,
+    "message": "staging sweep: driver ydb: exec sweep failed [BAD_CONFIG]: no routine source directory: set --routines or $ydb_routines (set flags or M_YDB_* env vars)"
+  }
+}

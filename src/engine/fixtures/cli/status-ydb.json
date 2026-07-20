@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "command": "vista status",
+  "ok": true,
+  "exit": 0,
+  "data": {
+    "transport": "docker",
+    "running": true,
+    "healthy": true,
+    "version": "r2.02",
+    "latencyMs": 72
+  }
+}

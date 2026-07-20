@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "command": "coverage <paths>",
+  "ok": true,
+  "exit": 0,
+  "data": {
+    "engine": "ydb",
+    "coveredLines": 2,
+    "totalLines": 2,
+    "linePercent": 100,
+    "files": [
+      {
+        "path": "/home/rafael/vista-forge/m-vscode/src/engine/fixtures/project/ZZMVSMATH.m",
+        "covered": 2,
+        "total": 2
+      }
+    ]
+  }
+}

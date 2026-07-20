@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "command": "test <paths>",
+  "ok": false,
+  "exit": 3,
+  "data": {
+    "engine": "ydb",
+    "suites": 1,
+    "passed": 0,
+    "failed": 0,
+    "results": [
+      {
+        "suite": "ZZMVSERRTST",
+        "tier": "pure-logic",
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "ok": false,
+        "engineError": {
+          "routine": "ZZMVSERRTST",
+          "line": 4,
+          "mnemonic": "%YDB-E-LABELMISSING",
+          "text": "Label referenced but not defined: missingLabel"
+        }
+      }
+    ]
+  },
+  "error": {
+    "code": "TESTS_FAILED",
+    "exit": 3,
+    "message": "1 of 1 suite(s) failed"
+  }
+}

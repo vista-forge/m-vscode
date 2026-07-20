@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "1.0",
+  "command": "vista exec <command>",
+  "ok": true,
+  "exit": 0,
+  "data": {
+    "stdout": "4\n",
+    "status": 0
+  }
+}

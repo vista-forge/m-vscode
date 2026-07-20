@@ -10,9 +10,9 @@ is about the *language*:
 |---|---|
 | [`vista-compass`](../vista-compass) | what the VistA system measurably **IS** (the measured model) |
 | [`vista-atlas`](../vista-atlas) | what the VA documentation **SAYS** (the gold corpus) |
-| **`m-vscode`** (this) | the **M language itself** — syntax, diagnostics, formatting, tests |
+| **`m-vscode`** (this) | the **M language itself** — syntax, diagnostics, formatting, tests, coverage |
 
-## Status — P1 + P2 (syntax highlighting + language client)
+## Status — P1, P2, P4 (syntax, language client, engine features)
 
 Shipped here:
 
@@ -23,10 +23,17 @@ Shipped here:
   real parse tree rather than a regex approximation;
 - an **`m lsp` client over stdio** giving **live diagnostics** and
   **formatting** (so `editor.formatOnSave` works) for M documents;
-- commands `M: Show Language Tools Status` and `M: Restart Language Server`.
+- a **Test Explorer** over `m test -o json` — suites discovered from
+  `*TST.m`, per-`@TEST` cases, failed assertions with their expected/actual,
+  and engine faults with routine + line + mnemonic;
+- **coverage gutters** from real `m coverage --lcov` output;
+- **`M: Execute Selection on the Engine`** over `m vista exec`, into its own
+  *M Engine* output channel;
+- an **engine status chip** in the status bar, fed by `m vista status`;
+- commands `M: Show Language Tools Status`, `M: Restart Language Server`,
+  `M: Execute Selection on the Engine`, `M: Check Engine Status`.
 
-Not yet: hover/completion/symbols (P3), Test Explorer and coverage gutters
-(P4). See the effort's
+Not yet: hover/completion/symbols (P3). See the effort's
 [proposal](../docs/proposals/pure-m-vscode/pure-m-vscode.md) and
 [tracker](../docs/proposals/pure-m-vscode/pure-m-vscode-tracker.md).
 
@@ -52,6 +59,29 @@ states that produce ERROR trees — and forbids a crash, a hang, a tree collapse
 or the document losing its colour. Partial trees are *expected* and tolerated;
 the test states exactly which is which.
 
+### Engine features — through the `m` CLI, and only through it
+
+The Test Explorer, coverage, *Execute Selection* and the status chip all reach
+an engine by **shelling out to the `m` CLI**, which owns the driver seam
+(m-driver-sdk → m-ydb / m-iris). There is no `docker exec`, no `mumps -direct`,
+no `iris session` and no driver binary anywhere in this repo — that is the org's
+transport monopoly, and here it is structural: `src/engine/run.ts` is the only
+module that starts a process, and the only process it starts is `m`.
+
+Everything above that boundary is pure and tested against **recorded real CLI
+output** (`src/engine/fixtures/cli/`), and the boundary itself is tested against
+a **fake `m` executable** — which is how `make check` covers the whole path
+while staying offline and engine-free. The live dual-engine run is separate
+acceptance evidence, not a gate.
+
+**Failure is never silent.** Every way this can break — no `m` on `PATH`, no
+Docker, a container that is not running, an engine that will not answer, a
+held run-lock, a suite that will not compile, a coverage run that wrote no
+tracefile — produces a message naming what failed *and* what to do about it.
+The Test Explorer never shows an empty list in place of an error, coverage
+never renders 0% in place of a failed measurement, and the status chip says
+**unknown** rather than implying health it did not verify.
+
 ### The guarantee: editor diagnostics == CI diagnostics
 
 The findings shown in the editor are the findings `m lint` produces — same rule
@@ -74,6 +104,10 @@ about M.
 | `mLanguageTools.lint.profile` | `""` | profile override; empty = the project's `.m-cli.toml`, which is what keeps the editor and CI identical (see the note below) |
 | `mLanguageTools.diagnostics.debounceMs` | `300` | delay before a keystroke burst is re-linted |
 | `mLanguageTools.diagnostics.largeFileBytes` | `262144` | documents this size or larger lint on **save only** |
+| `mLanguageTools.engine` | `ydb` | which engine the engine features reach (`ydb` \| `iris`) |
+| `mLanguageTools.docker` | `""` | Docker container holding the engine (e.g. `vehu`, `foia-t12`); empty leaves the connection to the driver's own environment |
+| `mLanguageTools.namespace` | `""` | IRIS namespace for test/coverage runs; ignored for YottaDB |
+| `mLanguageTools.engine.lockWaitSeconds` | `30` | bounded wait for the engine run-lock before *Execute Selection* gives up and names the holder |
 
 The last two mitigate the server's whole-document, non-cancellable lint
 (proposal §7-R3): a 1 MB routine costs seconds per lint, so above the threshold
@@ -92,10 +126,10 @@ plus committed artifacts; no marketplace publishing yet — that is a separate,
 deferred ruling, see the [tracker](../docs/proposals/pure-m-vscode/pure-m-vscode-tracker.md)).
 The released `.vsix` is committed at the repo root as
 `m-vscode-<version>.vsix` (currently
-[`m-vscode-0.1.0.vsix`](m-vscode-0.1.0.vsix)). To install it:
+[`m-vscode-0.2.0.vsix`](m-vscode-0.2.0.vsix)). To install it:
 
 ```bash
-code --install-extension m-vscode-0.1.0.vsix
+code --install-extension m-vscode-0.2.0.vsix
 ```
 
 Or from the Extensions view: **⋯ menu → Install from VSIX…** and pick the
@@ -103,8 +137,8 @@ file. To build your own copy instead of using the committed one, run
 `make release` (below) and install the `.vsix` it produces.
 
 **Runtime requirement:** syntax highlighting (tree-sitter-m, bundled in the
-`.vsix`) works with no other install. Diagnostics and format-on-save need the
-**`m` executable on `PATH`** (it runs `m lsp` as a child process) — without it
+`.vsix`) works with no other install. Diagnostics, format-on-save, tests,
+coverage and engine execution all need the **`m` executable on `PATH`** (it runs `m lsp` as a child process) — without it
 the extension says so once, in the *M Language Tools* output channel, and
 names the setting (`mLanguageTools.serverPath`) that points it elsewhere.
 
@@ -119,7 +153,7 @@ implemented in `m lsp` instead of here, it belongs in `m lsp`.
 
 **Non-waterline.** m-vscode carries no `m`/`v` layer artifact and is not in
 `.github/ecosystem.json` — it is an editor client that never touches an M
-engine itself (P4's engine features go through the `m` CLI, never through a
+engine itself (the engine features go through the `m` CLI, never through a
 hand-rolled transport). It is registered in `workspace/repos.txt` and on
 meta-gate's `REPOS_TXT_ALLOW`.
 
@@ -137,7 +171,15 @@ make release     # clean + npm ci + full gate + no-sourcemap bundle + package + 
 ```
 
 `make check` requires the `m` toolchain on `PATH` — the equivalence gate talks
-to a real `m lsp`. It stays offline: no network at gate time.
+to a real `m lsp`. It stays offline and **engine-free**: no network at gate
+time, and the engine features are exercised against a fake `m` executable, not
+a live engine.
+
+`make check-wasm` compares the vendored grammar against tree-sitter-m's
+**committed HEAD**, not its working tree — a neighbouring session editing that
+repo must not red this one's gate, and must certainly not have its uncommitted
+bytes vendored into a release. Set `WASM_UPSTREAM_WORKTREE=1` for the one case
+where the working tree is what you mean.
 
 Node 24 (`.node-version`, `engine-strict=true`). Full conventions: `CLAUDE.md`.
 
