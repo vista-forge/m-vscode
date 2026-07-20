@@ -61,3 +61,51 @@ importing `'./foo.ts'` fails `tsc --noEmit` with **TS5097**. The house pattern
 (same in vista-compass) is: **source files import `./foo.js`**, **test files
 import `./foo.ts`** (tsx resolves both). Tests are excluded from `tsconfig.json`,
 which is why the asymmetry type-checks.
+
+## ⭐ The product is the CJS bundle, not the ESM source — `import.meta.url` dies in it
+
+**Unit tests ran the extension as real ESM while the shipped product ran as
+CJS, and the two disagreed for a month with every gate green.** Symptom, only
+ever visible inside a real Extension Host:
+
+```
+[highlight] M syntax highlighting failed to start: The argument 'filename' must
+be a file URL object, file URL string, or absolute path string. Received undefined
+```
+
+Mechanism: `web-tree-sitter` is a **dual-build** package — its `exports` map
+offers an ESM build (reads `import.meta.url`) under the `import` condition and a
+CJS build (uses `__dirname`) under `require`. **esbuild picks the condition from
+the syntax of the import, not from `--format`**, so an `import { Parser } from
+'web-tree-sitter'` pulls the *ESM* build into our *CJS* output; esbuild then
+rewrites the meaningless `import.meta` to `{}`, and emscripten's node bootstrap
+dies on `createRequire(undefined)`.
+
+Three things about this are worth keeping:
+
+- **The throw site is `createRequire`, from `node:module` — not
+  `fileURLToPath`.** The two produce *different* messages (`ERR_INVALID_ARG_VALUE`
+  "The argument 'filename' must be…" vs `ERR_INVALID_ARG_TYPE` "The \"path\"
+  argument must be…"). The reported message identifies which one fired; that
+  distinction is what proved the crash is at **module init**, and therefore that
+  `Parser.init({locateFile})` could never have rescued it (the runtime never gets
+  far enough to consult `locateFile`) and that loading the grammar from bytes
+  addresses the wrong layer entirely. Read the message, don't pattern-match it.
+- **Fix = give the CJS output a truthful `import.meta.url`** — an esbuild
+  `banner` defining `pathToFileURL(__filename).href` plus
+  `define: {'import.meta.url': …}`, in `scripts/bundle.mjs`. Chosen over aliasing
+  to `tree-sitter.cjs` (hardcodes a dependency-private filename a version bump may
+  rename, and fixes only that one package). Strictly additive: asset staging,
+  artifact-sha pinning and `check-wasm` all untouched.
+- **Bundle only through `scripts/bundle.mjs`.** A direct `esbuild` call silently
+  drops the shim; `verify-bundle.mjs` reds on a bundle containing esbuild's empty
+  `import.meta` stub, which is the offline half of the guard.
+
+**The general lesson (the expensive one): green unit tests are not evidence the
+product works, when the tests and the product are built differently.** Anything
+that resolves its own location — wasm loaders, native bindings, worker spawners
+— behaves differently in the bundle and must be proven *in the host*. And a
+smoke suite must assert a feature's **own output** (highlighting emitted N
+semantic tokens), never that the extension *activated*: activation succeeded the
+entire time highlighting was dead, because `provider.ts` correctly caught the
+error and carried on.

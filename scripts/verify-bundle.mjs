@@ -48,6 +48,23 @@ if (!src.includes('LanguageClient')) {
   problems.push('vscode-languageclient is NOT bundled — the packaged extension would be inert');
 }
 
+// 3b. The ESM->CJS `import.meta.url` shim must be in force. esbuild rewrites
+// `import.meta` to `{}` when it bundles an ESM dependency into a CJS output, so
+// a bundled `import.meta.url` is `undefined` at runtime — which is precisely how
+// web-tree-sitter's emscripten bootstrap died (`createRequire(undefined)`) and
+// AST highlighting silently never started in the packaged extension while every
+// unit test, running under real ESM, stayed green. See scripts/bundle.mjs.
+// This is the cheap OFFLINE half of the guard; the smoke suite (src/smoke) is
+// the behavioural half that proves tokens actually reach the host.
+if (/\bimport_meta\s*=\s*\{\s*\}/.test(src) || /\bimport_meta\.url\b/.test(src)) {
+  problems.push(
+    'bundle contains esbuild\'s empty `import.meta` stub — a dependency reads ' +
+      '`import.meta.url`, which is `undefined` in this CJS bundle and crashes at ' +
+      'module init. The `import.meta.url` banner/define shim in scripts/bundle.mjs ' +
+      'is missing or was bypassed (did something call esbuild directly?).',
+  );
+}
+
 const allowed = new Set([...builtinModules, ...builtinModules.map((m) => `node:${m}`), 'vscode']);
 const external = [...src.matchAll(/require\("([^"]+)"\)/g)]
   .map((m) => m[1])

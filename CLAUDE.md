@@ -105,6 +105,35 @@ make release     # clean + npm ci + full gate + no-sourcemap bundle + package +
 make log MSG=".."# append to docs/changelog.md
 ```
 
+`npm run test:vscode` runs the in-host smoke suite (`src/smoke/`) inside the
+INSTALLED VS Code via `@vscode/test-electron` — see "The product is the CJS
+bundle" below. Not in `make check` (needs a display + installed VS Code 1.125+);
+run it and report the result whenever you touch `src/ext/*`, the bundle, or a
+runtime dependency.
+
+## The product is the CJS bundle, not the ESM source (learned the hard way)
+
+Every unit test runs the source as **real ESM** (`node --import tsx`). The
+product is the **esbuild CJS bundle** VS Code loads. These are different
+programs, and a dependency can work in one and crash in the other. It happened:
+`web-tree-sitter`'s ESM build reads `import.meta.url`, which esbuild rewrites to
+`undefined` in a CJS output, so its emscripten runtime died at module init
+(`createRequire(undefined)`) and **AST highlighting never once worked in the
+packaged extension** — from P1-downstream until 2026-07-20 — while every unit
+test, coverage number and `make check` stayed green. `scripts/bundle.mjs` now
+shims `import.meta.url`; read its header before changing the bundle.
+
+Two rules follow:
+
+- **Bundle only through `scripts/bundle.mjs`.** Never call `esbuild` directly
+  for `dist/extension.cjs` — it would drop the shim. `verify-bundle.mjs` reds on
+  a bundle carrying esbuild's empty `import.meta` stub, which is the offline
+  half of the guard.
+- **A feature is proven by its own output in the host, never by activation.**
+  The smoke suite asserts highlighting emits real semantic tokens through
+  `vscode.provideDocumentSemanticTokens`, not merely that the extension
+  activated. "It activated" was true the whole time the feature was dead.
+
 ## Release artifact — committed, local distribution (D4)
 
 Distribution is local-first (org rule 6): the released `.vsix` is **tracked in

@@ -107,3 +107,26 @@ already points at this line of work in progress, and both the version bump
 and any tagging decision stay explicit operator actions, per the kickoff's
 "do not bump to 1.0 — that is an explicit operator decision after §8 is
 verified."
+
+## 2026-07-20
+
+P1-downstream follow-up: fix AST highlighting in the packaged extension.
+
+`web-tree-sitter` is a dual-build package; esbuild picks the `import` condition
+from the syntax of our import, not from `--format=cjs`, so its ESM build — which
+reads `import.meta.url` — was bundled into the CJS file VS Code loads. esbuild
+rewrites that to `undefined`, and the emscripten runtime died at module init on
+`createRequire(undefined)`. Highlighting therefore never started in the product,
+from P1-downstream until today, while every unit test stayed green: the tests run
+the same modules as real ESM, where `import.meta.url` is real.
+
+Bundling moves to `scripts/bundle.mjs`, which shims `import.meta.url` to the
+bundle's own file URL (banner + define). Asset staging, artifact-sha pinning and
+`check-wasm` are untouched.
+
+Guarded twice, since the absence of a guard is the actual defect here:
+`scripts/verify-bundle.mjs` reds offline (inside `make check`) on a bundle
+carrying esbuild's empty `import.meta` stub, and the in-host smoke suite now
+asserts highlighting loads the grammar and emits real semantic tokens through
+`vscode.provideDocumentSemanticTokens` — not merely that the extension activated,
+which was true the entire time the feature was dead.

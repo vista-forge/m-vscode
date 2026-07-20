@@ -157,7 +157,41 @@ export async function run(): Promise<void> {
   );
   assert.ok((folds ?? []).length > 0, 'folding ranges non-empty');
 
-  // 5. Failure-visibility regression: a broken server path must produce a
+  // 5. Highlighting: the tree-sitter AST semantic-token provider must actually
+  // START and PRODUCE TOKENS in a real host. This is the assertion whose
+  // absence let P1-downstream ship broken — every unit test ran the highlighter
+  // under `node --import tsx` (ESM), while the product runs the esbuild CJS
+  // bundle, where web-tree-sitter's emscripten runtime resolved its own
+  // location differently. "The extension activated" is NOT evidence a feature
+  // works; only the feature's own output is.
+  const highlightLines = outputLines.filter((l) => l.startsWith('[highlight]'));
+  assert.ok(
+    highlightLines.some((l) => /tree-sitter-m grammar .* loaded/.test(l)),
+    `expected the M grammar to load in the host, [highlight] output was: ${JSON.stringify(highlightLines)}`,
+  );
+  const legend = await vscode.commands.executeCommand<vscode.SemanticTokensLegend>(
+    'vscode.provideDocumentSemanticTokensLegend',
+    doc.uri,
+  );
+  assert.ok(
+    (legend?.tokenTypes ?? []).length > 0,
+    'a semantic-tokens legend is registered for the document',
+  );
+  const semanticTokens = await vscode.commands.executeCommand<vscode.SemanticTokens>(
+    'vscode.provideDocumentSemanticTokens',
+    doc.uri,
+  );
+  assert.ok(
+    (semanticTokens?.data.length ?? 0) > 0,
+    `expected non-empty AST semantic tokens for ${file}, got ${semanticTokens?.data.length ?? 'none'}`,
+  );
+  assert.equal(
+    semanticTokens.data.length % 5,
+    0,
+    'semantic token data is the 5-uint-per-token encoding',
+  );
+
+  // 6. Failure-visibility regression: a broken server path must produce a
   // VISIBLE, ACTIONABLE error — never a silently dead extension. Point
   // `mLanguageTools.serverPath` at a binary that cannot exist, let the
   // extension's own `onDidChangeConfiguration` handler restart the client,
@@ -179,6 +213,8 @@ export async function run(): Promise<void> {
 
   process.stdout.write(
     'SMOKE PASS: hover (with per-engine provenance), completion, documentSymbol, foldingRange ' +
-      'all reach vscode.execute*Provider; a broken server path fails visibly via showErrorMessage\n',
+      'all reach vscode.execute*Provider; AST highlighting loads the grammar and emits ' +
+      `${semanticTokens.data.length / 5} semantic tokens; ` +
+      'a broken server path fails visibly via showErrorMessage\n',
   );
 }
