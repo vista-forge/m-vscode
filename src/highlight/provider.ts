@@ -25,10 +25,19 @@ export const SEMANTIC_TOKENS_LEGEND = new vscode.SemanticTokensLegend(
 const typeIndex = new Map(LEGEND.types.map((t, i) => [t, i]));
 const modifierBit = new Map(LEGEND.modifiers.map((m, i) => [m, 1 << i]));
 
+/** STATE-only status for the in-host smoke (see MVscodeApi): did the grammar
+ * actually load in THIS host? The output-channel line says the same thing, but
+ * a channel is unobservable across extensions — the api travels. */
+export interface HighlightStatus {
+  grammarLoaded: boolean;
+  grammarVersion?: string;
+  artifactSha256?: string;
+}
+
 export async function registerHighlighting(
   context: vscode.ExtensionContext,
   output: vscode.OutputChannel,
-): Promise<void> {
+): Promise<HighlightStatus> {
   let highlighter: MHighlighter;
   try {
     // Assets are staged into `dist/assets` by `scripts/bundle-assets.mjs` so the
@@ -45,7 +54,7 @@ export async function registerHighlighting(
         : `M syntax highlighting failed to start: ${(err as Error).message}`;
     output.appendLine(`[highlight] ${message}`);
     void vscode.window.showErrorMessage(message);
-    return;
+    return { grammarLoaded: false };
   }
 
   output.appendLine(
@@ -102,4 +111,9 @@ export async function registerHighlighting(
       SEMANTIC_TOKENS_LEGEND,
     ),
   );
+  return {
+    grammarLoaded: true,
+    grammarVersion: highlighter.grammarVersion,
+    artifactSha256: highlighter.artifactSha256,
+  };
 }

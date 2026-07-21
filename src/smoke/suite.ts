@@ -116,8 +116,9 @@ export async function run(): Promise<void> {
   // chain resolves, which includes `await client.start()` — so by the time
   // this returns, initialize/initialized has already completed and the
   // server's capabilities have been negotiated.
+  let activatedApi: MVscodeApi;
   try {
-    await extension.activate();
+    activatedApi = (await extension.activate()) as MVscodeApi;
   } catch (err) {
     process.stdout.write(
       `SMOKE FAIL during activate(): ${(err as Error).stack ?? String(err)}\n` +
@@ -128,12 +129,21 @@ export async function run(): Promise<void> {
 
   // Regression guard for the reentrancy hazard `serialize.ts` closes: the
   // client must start EXACTLY once during activation, never twice from a
-  // config-change event racing the activation restart.
-  const starts = outputLines.filter((l) => l.includes('started `m lsp`'));
+  // config-change event racing the activation restart. Read through the
+  // STATE-only api, not the output channel: the channel monkeypatch above only
+  // observes an extension sharing THIS extension host's `vscode` instance —
+  // true in dev mode, false for the INSTALLED extension (each extension gets
+  // its own API object), so an output-line assertion silently counts 0 there.
+  process.stdout.write(
+    `smoke: api snapshot — clientStarts=${activatedApi.clientStarts()} ` +
+      `highlight=${JSON.stringify(activatedApi.highlight())} ` +
+      `serverErrors=${JSON.stringify(activatedApi.serverErrors())} ` +
+      `profile=${JSON.stringify(activatedApi.profileStatus())}\n`,
+  );
   assert.equal(
-    starts.length,
+    activatedApi.clientStarts(),
     1,
-    `expected the client to start exactly once, saw ${starts.length}: ${JSON.stringify(outputLines)}`,
+    `expected the client to start exactly once, saw ${activatedApi.clientStarts()}: ${JSON.stringify(outputLines)}`,
   );
 
   // 1. Hover: real markdown, with the per-engine provenance sentence — the
@@ -183,10 +193,12 @@ export async function run(): Promise<void> {
   // bundle, where web-tree-sitter's emscripten runtime resolved its own
   // location differently. "The extension activated" is NOT evidence a feature
   // works; only the feature's own output is.
-  const highlightLines = outputLines.filter((l) => l.startsWith('[highlight]'));
+  // Read through the api (see the clientStarts note — the output-channel
+  // capture cannot see the INSTALLED extension's channel).
+  const hl = activatedApi.highlight();
   assert.ok(
-    highlightLines.some((l) => /tree-sitter-m grammar .* loaded/.test(l)),
-    `expected the M grammar to load in the host, [highlight] output was: ${JSON.stringify(highlightLines)}`,
+    hl.grammarLoaded,
+    `expected the M grammar to load in the host, highlight status was: ${JSON.stringify(hl)}`,
   );
   const legend = await vscode.commands.executeCommand<vscode.SemanticTokensLegend>(
     'vscode.provideDocumentSemanticTokensLegend',
@@ -291,17 +303,30 @@ export async function run(): Promise<void> {
   // and assert the real `vscode.window.showErrorMessage` fired with the
   // message `missingServerMessage` produces.
   const cfg = vscode.workspace.getConfiguration('mLanguageTools');
-  await cfg.update(
-    'serverPath',
-    '/does/not/exist/m-vscode-smoke-nonexistent',
-    vscode.ConfigurationTarget.Global,
-  );
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-  assert.ok(
-    errors.some((e) => /could not start the language server/.test(e)),
-    `expected a visible, actionable error for a missing server binary, saw: ${JSON.stringify(errors)}`,
-  );
-  await cfg.update('serverPath', undefined, vscode.ConfigurationTarget.Global);
+  try {
+    await cfg.update(
+      'serverPath',
+      '/does/not/exist/m-vscode-smoke-nonexistent',
+      vscode.ConfigurationTarget.Global,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    // Read through the api (the showErrorMessage monkeypatch above cannot see
+    // the INSTALLED extension's `vscode.window`); the recorded entry is pushed
+    // on the same line as the real showErrorMessage call, so it attests a
+    // VISIBLE error, not a logged one. `errors` still corroborates in dev mode.
+    assert.ok(
+      activatedApi.serverErrors().some((e) => /could not start the language server/.test(e)),
+      `expected a visible, actionable error for a missing server binary, saw: ${JSON.stringify(
+        activatedApi.serverErrors(),
+      )} (dev-mode capture: ${JSON.stringify(errors)})`,
+    );
+  } finally {
+    // ALWAYS unplant — a crash between the plant and here used to leave the
+    // bogus path in the PERSISTENT profile, and every later installed-mode run
+    // then started with a dead server (state contamination; run.ts also
+    // sanitizes at launch as the second line of defense).
+    await cfg.update('serverPath', undefined, vscode.ConfigurationTarget.Global);
+  }
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   process.stdout.write(

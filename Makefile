@@ -3,7 +3,7 @@
 NPM := npm
 BIN := ./node_modules/.bin
 
-.PHONY: install test test-watch test-cov lint format fix typecheck audit vuln check build bundle release-bundle verify-bundle vsix vsix-verify release clean push pull log docs-gate sync-wasm check-wasm
+.PHONY: install test test-watch test-cov lint format fix typecheck audit vuln check build bundle release-bundle verify-bundle vsix vsix-verify release clean push pull log docs-gate sync-wasm check-wasm smoke-installed
 
 # Git hooks are NOT managed here — the org's pre-push gate (core.hooksPath ->
 # .github/githooks) already dispatches to `make check` per repo. A per-repo
@@ -82,6 +82,16 @@ release-bundle:
 # ship a .vsix that installs cleanly and then does nothing (see scripts/).
 verify-bundle:
 	node scripts/verify-bundle.mjs
+
+# Extension-Host smoke against the INSTALLED extension (B9 P3 / E3 machinery;
+# the org vsix-smoke cadence wraps this in xvfb-run). Rebuilds ONLY the in-host
+# suite bundle — the extension under test is the one installed from the .vsix
+# into M_VSCODE_SMOKE_EXTENSIONS_DIR (run.ts refuses rc 2 without the dirs, so
+# it can never silently fall back to dev mode). Needs a display (xvfb ok),
+# installed VS Code, and `m` on PATH.
+smoke-installed:
+	$(NPM) run bundle:smoke
+	M_VSCODE_SMOKE_INSTALLED=1 node --import tsx src/smoke/run.ts
 
 vsix:
 	$(NPM) run vsix

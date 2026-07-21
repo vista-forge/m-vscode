@@ -1,7 +1,14 @@
 import * as vscode from 'vscode';
-import { registerHighlighting } from '../highlight/provider.js';
+import { type HighlightStatus, registerHighlighting } from '../highlight/provider.js';
 import { statusText } from '../lsp/policy.js';
-import { CONFIG_SECTION, type MLanguageClient, readSettings, startClient } from './client.js';
+import {
+  CONFIG_SECTION,
+  clientStartCount,
+  type MLanguageClient,
+  readSettings,
+  shownServerErrors,
+  startClient,
+} from './client.js';
 import { registerEngineStatus } from './engine-status.js';
 import { registerExecuteSelection } from './exec.js';
 import {
@@ -32,6 +39,12 @@ let output: vscode.OutputChannel | undefined;
  */
 export interface MVscodeApi {
   profileStatus(): ProfileStatusSnapshot;
+  /** Lifetime count of successful `m lsp` client starts (reentrancy guard). */
+  clientStarts(): number;
+  /** Did the tree-sitter-m grammar load in THIS host (the bundled boundary)? */
+  highlight(): HighlightStatus;
+  /** Errors this extension SHOWED the user about the server (visibility proof). */
+  serverErrors(): readonly string[];
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<MVscodeApi> {
@@ -73,7 +86,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<MVscod
   // Syntax highlighting (P1) is independent of the language server (P2): a
   // missing or broken `m` binary must not cost the user their colours, and a
   // missing grammar must not cost them diagnostics.
-  await registerHighlighting(context, output);
+  highlightStatus = await registerHighlighting(context, output);
 
   // Engine features (P4). Independent of both the grammar and the language
   // server: they shell out to the `m` CLI, which owns the driver seam. A
@@ -89,8 +102,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<MVscod
 
   await restart();
 
-  return { profileStatus: () => profileStatus() };
+  return {
+    profileStatus: () => profileStatus(),
+    clientStarts: () => clientStartCount(),
+    highlight: () => highlightStatus,
+    serverErrors: () => shownServerErrors(),
+  };
 }
+
+let highlightStatus: HighlightStatus = { grammarLoaded: false };
 
 let profile: ProfileStatusApi | undefined;
 

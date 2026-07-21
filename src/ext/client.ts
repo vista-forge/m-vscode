@@ -10,6 +10,24 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+
+// STATE-only introspection for the in-host smoke (the suite cannot observe
+// the installed extension's output channel or its `vscode.window` — each
+// extension gets its own API instance; see MVscodeApi): lifetime count of
+// successful `client.start()` calls (reentrancy guard), and the errors this
+// module SHOWED the user (recorded on the same line as showErrorMessage, so a
+// recorded entry attests a visible one).
+let starts = 0;
+const shownErrors: string[] = [];
+
+export function clientStartCount(): number {
+  return starts;
+}
+
+export function shownServerErrors(): readonly string[] {
+  return shownErrors;
+}
+
 import * as vscode from 'vscode';
 import {
   LanguageClient,
@@ -79,6 +97,7 @@ export async function startClient(
   if (!(await serverIsRunnable(launch.command))) {
     const message = missingServerMessage(launch.command);
     output.appendLine(message);
+    shownErrors.push(message);
     void vscode.window.showErrorMessage(message);
     return undefined;
   }
@@ -167,6 +186,7 @@ export async function startClient(
     clientOptions,
   );
   await client.start();
+  starts += 1;
   output.appendLine(`started \`${launch.command} ${launch.args.join(' ')}\``);
 
   return {

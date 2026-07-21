@@ -159,7 +159,7 @@ plus committed artifacts; no marketplace publishing yet — that is a separate,
 deferred ruling, see the [tracker](../docs/proposals/pure-m-vscode/pure-m-vscode-tracker.md)).
 The released `.vsix` is committed at the repo root as
 `m-vscode-<version>.vsix` (currently
-[`m-vscode-0.2.0.vsix`](m-vscode-0.2.0.vsix)). To install it:
+[`m-vscode-0.3.0.vsix`](m-vscode-0.3.0.vsix)). To install it:
 
 ```bash
 code --install-extension m-vscode-0.2.0.vsix
