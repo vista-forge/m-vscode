@@ -58,9 +58,12 @@ tell you what moved), and commit.
 
 `make check-wasm` is the first step of `make check`: it reds on a hand-edited
 copy and on a copy that has gone **stale** against the upstream checkout. With
-no tree-sitter-m checkout beside this repo it prints a loud UNVERIFIED banner
-and passes (`STRICT_UPSTREAM=1` makes absence fatal) — it never pretends to
-have verified staleness it could not see.
+no tree-sitter-m checkout beside this repo it **refuses** (rc != 0), naming what
+it could not verify — "cannot verify staleness" must never read as "verified"
+(policy P5c). To run anyway, skip the staleness check as a visible,
+per-invocation choice: `ALLOW_MISSING_UPSTREAM=1 make check-wasm` (never an
+ambient default). This is the same refuse-by-default discipline tree-sitter-m
+uses on its side of the seam.
 
 Staleness is measured against tree-sitter-m's **committed HEAD**, not its
 working tree: a concurrent session editing that repo must not red this repo's

@@ -9,9 +9,11 @@
 //      grammar CI no longer uses.
 //
 // (1) is always checked, from committed data alone. (2) needs the upstream
-// checkout; when it is absent the gate says so LOUDLY and passes (rc 0) rather
-// than pretending it verified something — same discipline as tree-sitter-m's
-// own ALLOW_MISSING_M_PARSE arm. Set STRICT_UPSTREAM=1 to make absence fatal.
+// checkout; when it is absent the gate REFUSES (rc != 0), naming what it could
+// not verify, rather than pretending it verified something — the same
+// refuse-by-default discipline as tree-sitter-m's own ALLOW_MISSING_M_PARSE arm.
+// Set ALLOW_MISSING_UPSTREAM=1 to skip the staleness check as a visible,
+// per-invocation choice (policy P5c: skip != pass, hatch != default).
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -62,8 +64,17 @@ if (!existsSync(upstream)) {
   const msg =
     'UNVERIFIED — tree-sitter-m checkout absent, STALENESS NOT CHECKED. ' +
     'The vendored artifact could be any age. Clone vista-forge/tree-sitter-m beside this repo.';
-  if (process.env.STRICT_UPSTREAM === '1') fail(msg);
-  else console.error(`check-wasm: ${msg}`);
+  // Refuse by default: "cannot verify" must never read as "verified". The skip
+  // is an explicit, per-invocation choice — ALLOW_MISSING_UPSTREAM=1, never an
+  // ambient default (policy P5c: skip != pass, hatch != default).
+  if (process.env.ALLOW_MISSING_UPSTREAM === '1') {
+    console.error(`check-wasm: !! ${msg}`);
+    console.error(
+      'check-wasm: !! *** SKIPPED *** staleness UNVERIFIED, by request (ALLOW_MISSING_UPSTREAM=1).',
+    );
+  } else {
+    fail(`${msg} Set ALLOW_MISSING_UPSTREAM=1 to skip this check as a visible, deliberate choice.`);
+  }
 } else {
   // Compare against upstream's COMMITTED HEAD, not its working tree.
   //
