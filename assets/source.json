@@ -2,11 +2,11 @@
   "schema_version": "1",
   "comment": "Provenance of the vendored tree-sitter-m editor artifacts. Written by scripts/sync-wasm.mjs; verified by scripts/check-wasm.mjs. Do not hand-edit.",
   "upstream_repo": "vista-forge/tree-sitter-m",
-  "upstream_commit": "c6093708b2aa3e786569c8ebd3816f8b97370d61",
-  "synced_at": "2026-07-20T12:31:54.076Z",
+  "upstream_commit": "835611919525bf5b1f476cf51af89f68bffb2a45",
+  "synced_at": "2026-07-21T03:36:06.126Z",
   "files": {
-    "assets/tree-sitter-m.wasm": "064a8aef70965ba8d5d990453cc14ef5fb410a786302f2aae4b43e5f00271235",
-    "assets/tree-sitter-m.wasm.json": "ee7daa5d5fccc98de4bea31dfc897493acdaf15e78ae8c85bc2dbae42435938e",
+    "assets/tree-sitter-m.wasm": "61e6349eb82ecc4c4cdb21f31d7bce7e4b47d76843d60338baeb0192b5be2130",
+    "assets/tree-sitter-m.wasm.json": "07216ce6fe89fe867832bd8563f369381332e55d92f93d0fc33974e514dd01aa",
     "assets/highlights.scm": "c813365a7b338a60db25a0ebeb990638b05785c86b55beebfafba7333b3342d2"
   }
 }

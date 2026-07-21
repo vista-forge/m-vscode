@@ -130,3 +130,7 @@ carrying esbuild's empty `import.meta` stub, and the in-host smoke suite now
 asserts highlighting loads the grammar and emits real semantic tokens through
 `vscode.provideDocumentSemanticTokens` — not merely that the extension activated,
 which was true the entire time the feature was dead.
+
+## 2026-07-21
+
+Grammar-wave finish (Option B): re-synced the tree-sitter-m web-ABI wasm from upstream HEAD 8356119 (T2-10 enumerated keyword surface + m-standard schema-v2 repin — 17 trigger/missing ISVs, IRIS aliases G/TS). Node-kind pin re-measured 1170 -> 1284 per the pin's own contract; check-wasm green with upstream present; equivalence/e2e gates green against the freshly built m (v0.4.0 grammar + alias-adopted hover).

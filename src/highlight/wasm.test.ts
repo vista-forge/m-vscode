@@ -17,9 +17,12 @@ test('loadGrammar loads the vendored artifact and reports what it loaded', async
   // Measured, and re-measured on every re-sync. History of this ONE number:
   // 1019 (S1 spike / P1-upstream notes) -> 1020 at `8a3c0b2` (the
   // `_sp_comment` external token) -> 1170 at `0d41453` (IRIS abbreviations
-  // `$I`/`ZW`, regenerated from m-standard). Upstream's own loader test
-  // asserts only `> 900`, so it never notices; this pin is what does.
-  assert.equal(loaded.language.nodeTypeCount, 1170, 'node kinds');
+  // `$I`/`ZW`, regenerated from m-standard) -> 1284 at `8356119` (T2-10
+  // enumerated keyword surface + the m-standard schema-v2 repin: 17
+  // trigger/missing ISVs and the IRIS aliases `$LG`/`$ZTS`/...). Upstream's
+  // own loader test asserts only `> 900`, so it never notices; this pin is
+  // what does.
+  assert.equal(loaded.language.nodeTypeCount, 1284, 'node kinds');
   assert.equal(loaded.artifactSha256, manifest.artifact_sha256);
   assert.equal(loaded.grammarVersion, manifest.grammar_version);
   assert.ok(loaded.highlights.includes('@comment'), 'highlights.scm came along');
