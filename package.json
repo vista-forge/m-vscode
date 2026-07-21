@@ -1,6 +1,6 @@
 {
   "name": "m-vscode",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "M Language Tools (MUMPS) \u2014 VS Code extension for pure, portable M: language registration, tree-sitter syntax, an LSP client over `m lsp`, and Test Explorer / coverage / engine execution over the `m` CLI. No VistA required.",
   "type": "module",
   "main": "./dist/extension.cjs",

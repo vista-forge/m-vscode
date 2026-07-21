@@ -19,10 +19,13 @@ test('loadGrammar loads the vendored artifact and reports what it loaded', async
   // `_sp_comment` external token) -> 1170 at `0d41453` (IRIS abbreviations
   // `$I`/`ZW`, regenerated from m-standard) -> 1284 at `8356119` (T2-10
   // enumerated keyword surface + the m-standard schema-v2 repin: 17
-  // trigger/missing ISVs and the IRIS aliases `$LG`/`$ZTS`/...). Upstream's
+  // trigger/missing ISVs and the IRIS aliases `$LG`/`$ZTS`/...) -> 1272 at
+  // `74a312d` (m-standard schema-v3, D-2/D-3: the Z/$Z/$ZUNSPECIFIED
+  // reservation chains left the keyword tables; `$Z` survives only as the
+  // hand-coded vendor-recovery anchor). Upstream's
   // own loader test asserts only `> 900`, so it never notices; this pin is
   // what does.
-  assert.equal(loaded.language.nodeTypeCount, 1284, 'node kinds');
+  assert.equal(loaded.language.nodeTypeCount, 1272, 'node kinds');
   assert.equal(loaded.artifactSha256, manifest.artifact_sha256);
   assert.equal(loaded.grammarVersion, manifest.grammar_version);
   assert.ok(loaded.highlights.includes('@comment'), 'highlights.scm came along');
