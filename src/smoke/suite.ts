@@ -20,7 +20,26 @@
  */
 
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import * as vscode from 'vscode';
+import { templateById } from '../config/templates.js';
+import type { MVscodeApi } from '../ext/extension.js';
+
+/**
+ * Poll until `predicate` holds, or fail naming what never happened. The
+ * profile surface and the diagnostics that follow a config write are both
+ * asynchronous (a watcher event, a language-server restart, a re-lint), so a
+ * fixed sleep would be either flaky or slow.
+ */
+async function waitFor(what: string, predicate: () => boolean, timeoutMs = 30_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  assert.fail(`timed out after ${timeoutMs} ms waiting for ${what}`);
+}
 
 function positionOf(
   doc: vscode.TextDocument,
@@ -191,7 +210,81 @@ export async function run(): Promise<void> {
     'semantic token data is the 5-uint-per-token encoding',
   );
 
-  // 6. Failure-visibility regression: a broken server path must produce a
+  // 6. Profile UX (E2 / acceptance matrix A5): an unconfigured folder must SAY
+  // so, and the one-click remedy must actually change what the user sees.
+  // Asserted on the real `LanguageStatusItem` the extension publishes (read
+  // back through its API export) and on real diagnostics — never on an
+  // internal model, because the failure this closes is a surface that silently
+  // reports the wrong profile.
+  const api = (await extension.activate()) as MVscodeApi;
+  const unconfiguredFile = process.env.M_VSCODE_SMOKE_UNCONFIGURED_FILE;
+  assert.ok(unconfiguredFile, 'M_VSCODE_SMOKE_UNCONFIGURED_FILE set');
+
+  // (a) unconfigured scratch workspace — the honest warning state.
+  const scratchDoc = await vscode.workspace.openTextDocument(unconfiguredFile);
+  await vscode.window.showTextDocument(scratchDoc);
+  await waitFor(
+    'the profile status item to resolve the scratch document',
+    () => api.profileStatus().resolvedFor === dirname(unconfiguredFile),
+  );
+  const unconfigured = api.profileStatus();
+  assert.match(
+    unconfigured.text,
+    /no M profile configured — default rules in effect/,
+    `unconfigured folder must say so, got: ${JSON.stringify(unconfigured)}`,
+  );
+  assert.equal(unconfigured.severity, 'warning', 'the unconfigured state is warning-tinted');
+  assert.equal(
+    unconfigured.command,
+    'mVscode.configureProfile',
+    'the unconfigured state offers the one-click remedy',
+  );
+
+  // (b) the one-click remedy writes the vista template, and the diagnostics
+  // the user sees change with it. ZZCAP.m yields ZERO findings under the
+  // unnamed default rule set and TWO SAC findings under `vista` — so the
+  // diagnostic set itself proves the profile took effect, not just the label.
+  assert.equal(
+    vscode.languages.getDiagnostics(scratchDoc.uri).length,
+    0,
+    'baseline: the default rule set finds nothing in this fixture',
+  );
+  await vscode.commands.executeCommand('mVscode.configureProfile', 'vista');
+  const written = readFileSync(join(dirname(unconfiguredFile), '.m-cli.toml'), 'utf8');
+  assert.equal(written, templateById('vista')?.content, 'the vista template is written verbatim');
+  await waitFor('the status item to name the vista profile', () =>
+    /profile: vista/.test(api.profileStatus().text),
+  );
+  assert.equal(api.profileStatus().severity, 'information', 'a governed folder is not a warning');
+  await waitFor(
+    'diagnostics to refresh under the newly written vista profile',
+    () =>
+      vscode.languages
+        .getDiagnostics(scratchDoc.uri)
+        .some((d) => /violates the SAC/.test(d.message)),
+    60_000,
+  );
+
+  // (c) an already-configured project shows its governing config.
+  const configuredDoc = await vscode.workspace.openTextDocument(file);
+  await vscode.window.showTextDocument(configuredDoc);
+  await waitFor(
+    'the status item to follow the active editor',
+    () => api.profileStatus().resolvedFor === dirname(file),
+  );
+  const configured = api.profileStatus();
+  assert.match(
+    configured.text,
+    /profile: default — \.m-cli\.toml/,
+    `configured project names its profile, got: ${JSON.stringify(configured)}`,
+  );
+  assert.match(
+    configured.detail,
+    /src\/lsp\/fixtures\/capabilities\/\.m-cli\.toml/,
+    `configured project names the governing file, got: ${configured.detail}`,
+  );
+
+  // 7. Failure-visibility regression: a broken server path must produce a
   // VISIBLE, ACTIONABLE error — never a silently dead extension. Point
   // `mLanguageTools.serverPath` at a binary that cannot exist, let the
   // extension's own `onDidChangeConfiguration` handler restart the client,
@@ -215,6 +308,7 @@ export async function run(): Promise<void> {
     'SMOKE PASS: hover (with per-engine provenance), completion, documentSymbol, foldingRange ' +
       'all reach vscode.execute*Provider; AST highlighting loads the grammar and emits ' +
       `${semanticTokens.data.length / 5} semantic tokens; ` +
+      'an unconfigured folder SAYS so and the one-click remedy changes real diagnostics; ' +
       'a broken server path fails visibly via showErrorMessage\n',
   );
 }

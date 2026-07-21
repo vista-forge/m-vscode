@@ -134,3 +134,7 @@ which was true the entire time the feature was dead.
 ## 2026-07-21
 
 Grammar-wave finish (Option B): re-synced the tree-sitter-m web-ABI wasm from upstream HEAD 8356119 (T2-10 enumerated keyword surface + m-standard schema-v2 repin — 17 trigger/missing ISVs, IRIS aliases G/TS). Node-kind pin re-measured 1170 -> 1284 per the pin's own contract; check-wasm green with upstream present; equivalence/e2e gates green against the freshly built m (v0.4.0 grammar + alias-adopted hover).
+
+## 2026-07-21
+
+E2-UX (acceptance matrix A5): the honest unconfigured-folder state. A language-status item now names the .m-cli.toml governing the open M file — or warns, warning-tinted, that none does and unnamed default rules are in effect — plus `M: Configure M Profile` writing a modern/vista template (never overwriting an existing config) and `M: Open Project Configuration`. Detection ports m-cli's FindConfig walk (.git boundary included) because m lsp echoes no effective profile. Config changes restart the client, since the server re-lints only on didOpen/didChange; all three in-host assertions (unconfigured surface, remedy changes real diagnostics, configured project names its config) red-proved before implementing.

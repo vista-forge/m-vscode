@@ -30,8 +30,12 @@ Shipped here:
 - **`M: Execute Selection on the Engine`** over `m vista exec`, into its own
   *M Engine* output channel;
 - an **engine status chip** in the status bar, fed by `m vista status`;
+- a **lint-profile status item** naming the `.m-cli.toml` that governs the open
+  M file — or warning that none does — with a one-click **`M: Configure M
+  Profile`** that writes one (see below);
 - commands `M: Show Language Tools Status`, `M: Restart Language Server`,
-  `M: Execute Selection on the Engine`, `M: Check Engine Status`.
+  `M: Execute Selection on the Engine`, `M: Check Engine Status`,
+  `M: Configure M Profile`, `M: Open Project Configuration`.
 
 Not yet: hover/completion/symbols (P3). See the effort's
 [proposal](../docs/proposals/pure-m-vscode/pure-m-vscode.md) and
@@ -93,6 +97,35 @@ in `make check`, and it **fails** rather than skips when `m` is unavailable.
 Both diagnostic dialects meet in exactly one module, `src/lsp/normalize.ts`
 (LSP is 0-based, `m lint` is 1-based). Nothing else in this repo knows anything
 about M.
+
+### An unconfigured folder says so
+
+With no `.m-cli.toml` anywhere up-tree, `m lint` applies an **unnamed default
+rule set** and never names it — so an editor that just showed the findings
+would be showing diagnostics from a profile nobody chose, silently. On
+VistA-era code that default is actively wrong: it floods legacy routines with
+modern-style findings.
+
+So the extension always states which config governs the file in front of you.
+The **M lint profile** language-status item (the `{}` icon in the status bar,
+visible whenever an M file is active) reads either
+
+- `profile: vista — .m-cli.toml` — with the full path of the governing file in
+  its tooltip; or
+- `no M profile configured — default rules in effect` — **warning-tinted**,
+  with a **Configure…** button.
+
+That button (`M: Configure M Profile`) writes a minimal `.m-cli.toml` into the
+workspace root from one of two templates — **Modern M** (`[lint] rules =
+"modern"`) or **VistA-era M** (`[lint] rules = "vista"`) — after which the
+status item and the diagnostics both refresh. Both templates pin
+`[fmt] rules = "identity"`: canonical formatting *rewrites* source, and nothing
+written on your behalf should arm a rewrite of 40-year-old routines. An
+existing `.m-cli.toml` is never overwritten — the command opens it instead.
+
+The detection is the same up-tree walk m-cli itself does
+(`src/config/discovery.ts` ports `config.FindConfig`, `.git` boundary
+included), because the label is a claim about what the *server* resolved.
 
 ### Settings
 

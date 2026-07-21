@@ -4,6 +4,11 @@ import { statusText } from '../lsp/policy.js';
 import { CONFIG_SECTION, type MLanguageClient, readSettings, startClient } from './client.js';
 import { registerEngineStatus } from './engine-status.js';
 import { registerExecuteSelection } from './exec.js';
+import {
+  type ProfileStatusApi,
+  type ProfileStatusSnapshot,
+  registerProfileStatus,
+} from './profile-status.js';
 import { serialize } from './serialize.js';
 import { statusMessage } from './status.js';
 import { registerTesting } from './testing.js';
@@ -19,7 +24,17 @@ import { registerTesting } from './testing.js';
 let running: MLanguageClient | undefined;
 let output: vscode.OutputChannel | undefined;
 
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
+/**
+ * What `activate()` hands back to the extension host — the seam the in-host
+ * smoke suite reads. It exposes STATE ONLY (what the profile surface currently
+ * says), never a way to drive the extension: a test that could set the state
+ * it then asserts would prove nothing.
+ */
+export interface MVscodeApi {
+  profileStatus(): ProfileStatusSnapshot;
+}
+
+export async function activate(context: vscode.ExtensionContext): Promise<MVscodeApi> {
   const version = (context.extension.packageJSON as { version?: string }).version ?? '0.0.0';
   output = vscode.window.createOutputChannel('M Language Tools');
   context.subscriptions.push(output);
@@ -67,7 +82,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerExecuteSelection(context);
   registerEngineStatus(context);
 
+  // The profile surface (A5). Registered BEFORE the client starts so the very
+  // first M file a user opens already carries an honest answer to "which rules
+  // am I being linted against?" — including when the server never starts.
+  profile = registerProfileStatus(context, output, restart);
+
   await restart();
+
+  return { profileStatus: () => profileStatus() };
+}
+
+let profile: ProfileStatusApi | undefined;
+
+/** The current profile surface state; a blank, warning-tinted default before
+ * activation has wired it, never a confident-looking one. */
+function profileStatus(): ProfileStatusSnapshot {
+  return (
+    profile?.current() ?? {
+      text: 'M profile: not resolved yet',
+      detail: 'The extension has not finished activating.',
+      severity: 'warning',
+      command: 'mVscode.configureProfile',
+      resolvedFor: '',
+    }
+  );
 }
 
 /**
