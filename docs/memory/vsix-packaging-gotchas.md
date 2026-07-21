@@ -109,3 +109,13 @@ smoke suite must assert a feature's **own output** (highlighting emitted N
 semantic tokens), never that the extension *activated*: activation succeeded the
 entire time highlighting was dead, because `provider.ts` correctly caught the
 error and carried on.
+
+## dist/ ships wholesale — test-suite bundles ride into the .vsix (E3, 2026-07-21)
+
+`files: ["dist", …]` packages **everything** in dist/, so the in-host harness
+bundles (`smoke-suite.cjs`, `acceptance-suite.cjs`) ship in any `.vsix`
+packaged after a smoke/acceptance run — found by content-diffing a fresh
+package against the committed artifact. `make vsix` now strips them before
+`vsce package`, and `vsix-verify` reds if either appears in the archive
+(red-proofed against a vsce-direct polluted package). Packaging with `vsce`
+directly bypasses the strip — don't.

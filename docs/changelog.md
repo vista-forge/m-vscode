@@ -138,3 +138,7 @@ Grammar-wave finish (Option B): re-synced the tree-sitter-m web-ABI wasm from up
 ## 2026-07-21
 
 E2-UX (acceptance matrix A5): the honest unconfigured-folder state. A language-status item now names the .m-cli.toml governing the open M file — or warns, warning-tinted, that none does and unnamed default rules are in effect — plus `M: Configure M Profile` writing a modern/vista template (never overwriting an existing config) and `M: Open Project Configuration`. Detection ports m-cli's FindConfig walk (.git boundary included) because m lsp echoes no effective profile. Config changes restart the client, since the server re-lints only on didOpen/didChange; all three in-host assertions (unconfigured surface, remedy changes real diagnostics, configured project names its config) red-proved before implementing.
+
+## 2026-07-21
+
+E3 acceptance harness (close-out gate): make accept-installed runs the full A1–A5 matrix from the INSTALLED .vsix — one cold Extension-Host launch per scenario against the real corpora (m-modern-corpus, FileMan 22.2, assembled 1 MB torture, garbage file, unconfigured folder), per-criterion evidence rows vs the ratified budgets; installed-mode machinery shared with the B9 smoke (installed.ts); live-lint p95 gated on the W0-c LSP-layer instrument (headless LspSession, same m binary), in-host end-to-end recorded as telemetry; vsix packaging now strips harness suite bundles + vsix-verify reds on them; first full run 54/54 criteria green, wired as the org vsix-acceptance nightly STAMP.

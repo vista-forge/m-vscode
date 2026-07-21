@@ -126,6 +126,26 @@ export class LspSession {
     return published;
   }
 
+  /**
+   * Send a full-text didChange and resolve with the next diagnostics publish
+   * for the document — the W0-c "didChange→publish" instrument, used by the
+   * E3 acceptance runner to measure the ratified live-lint budget at the
+   * layer it was ratified on (the server), independent of host-side costs.
+   */
+  async changeAndAwaitDiagnostics(
+    path: string,
+    text: string,
+    version: number,
+  ): Promise<LspDiagnosticLike[]> {
+    const uri = pathToFileURL(path).href;
+    const published = this.awaitNotification('textDocument/publishDiagnostics', uri);
+    this.notify('textDocument/didChange', {
+      textDocument: { uri, version },
+      contentChanges: [{ text }],
+    });
+    return published;
+  }
+
   async formatting(path: string): Promise<TextEdit[]> {
     const result = await this.request('textDocument/formatting', {
       textDocument: { uri: pathToFileURL(path).href },

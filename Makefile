@@ -93,7 +93,28 @@ smoke-installed:
 	$(NPM) run bundle:smoke
 	M_VSCODE_SMOKE_INSTALLED=1 node --import tsx src/smoke/run.ts
 
+# E3 acceptance matrix (A1–A5) from the INSTALLED extension — one cold
+# Extension-Host launch per scenario, against the REAL corpora (the org
+# vsix-acceptance cadence wraps this in xvfb-run; same persistent dirs as
+# smoke-installed). `bundle` also stages dist/assets, which the runner's
+# node-side semantic-token oracle reads. Installed mode is MANDATORY here —
+# the matrix is defined on the packaged artifact (rc 2 without the dirs).
+M_ACCEPT_MODERN_DIR ?= $(shell cd .. && pwd)/m-modern-corpus
+M_ACCEPT_FILEMAN_DIR ?= $(shell cd .. && pwd)/vista-fileman/src/Packages/VA FileMan/Routines
+accept-installed:
+	$(NPM) run bundle
+	$(NPM) run bundle:acceptance
+	M_VSCODE_SMOKE_INSTALLED=1 \
+	M_ACCEPT_MODERN_DIR="$(M_ACCEPT_MODERN_DIR)" \
+	M_ACCEPT_FILEMAN_DIR="$(M_ACCEPT_FILEMAN_DIR)" \
+	node --import tsx src/smoke/acceptance-run.ts
+
+# The in-host TEST bundles (smoke/acceptance suites) live in dist/ beside the
+# product bundle, and package.json's `files` allowlist ships dist/ wholesale —
+# so strip them before packaging (they are harness, not product; found when a
+# fresh package after `make accept-installed` shipped both).
 vsix:
+	rm -f dist/smoke-suite.cjs dist/acceptance-suite.cjs
 	$(NPM) run vsix
 
 # Package, then READ the package: assert the bundle and the language
@@ -116,6 +137,12 @@ vsix-verify: vsix
 # drifting back to `bundle`) would otherwise ship silently.
 	@if unzip -l m-vscode-*.vsix | grep -q 'dist/extension.cjs.map'; then \
 	  echo 'vsix-verify: FAILED — packaged .vsix contains a source map (dist/extension.cjs.map); run `make release-bundle` (drops --sourcemap) before packaging a release'; \
+	  exit 1; \
+	fi
+# The harness suite bundles must never ship — they are test code riding in
+# dist/ only because esbuild puts them there for the Extension-Host runners.
+	@if unzip -l m-vscode-*.vsix | grep -Eq 'dist/(smoke|acceptance)-suite\.cjs'; then \
+	  echo 'vsix-verify: FAILED — packaged .vsix contains an in-host TEST suite bundle (dist/*-suite.cjs); `make vsix` strips them — do not package with vsce directly'; \
 	  exit 1; \
 	fi
 	@echo 'vsix-verify: OK — bundle, language configuration, and grammar assets present; grammar sha matches the upstream manifest; no source map shipped.'
