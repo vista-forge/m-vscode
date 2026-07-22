@@ -1,3 +1,27 @@
+m-vscode — the pure-M VS Code extension (semantic tokens, LSP, coverage) over the m toolchain.
+
+This program is DUAL-LICENSED. You may use it under EITHER of:
+
+  (a) the GNU Affero General Public License as published by the Free Software
+      Foundation, either version 3 of the License, or (at your option) any
+      later version. The full text of version 3 appears below; OR
+
+  (b) a commercial license from vista-forge, for use in proprietary or closed
+      products, hosted services, or environments (including most U.S. federal
+      systems and their integrators) that cannot accept the AGPL's network
+      source-disclosure obligation. Terms and how to enquire:
+      https://vista-forge.github.io/licensing.html
+
+Copyright (C) 2026 vista-forge. All rights reserved.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+===============================================================================
+                     Full text of the GNU AGPL, version 3
+===============================================================================
+
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 
