@@ -6,6 +6,7 @@ import { resolveEngineSettings } from './settings.ts';
 const ydb = resolveEngineSettings({ engine: 'ydb', docker: 'vehu' });
 const iris = resolveEngineSettings({ engine: 'iris', docker: 'foia-t12', namespace: 'VISTA' });
 const bare = resolveEngineSettings({ engine: 'ydb' });
+const irisBare = resolveEngineSettings({ engine: 'iris' });
 
 describe('testArgv', () => {
   it('is `m test` with the engine, container and json output', () => {
@@ -63,8 +64,24 @@ describe('statusArgv', () => {
     ]);
   });
 
-  it('falls back to the driver default transport with no container', () => {
-    assert.ok(!statusArgv(bare).includes('--transport'));
+  it('uses --transport local for ydb with no container (a local/devbox engine)', () => {
+    // The ydb driver default is REMOTE (needs a host) — wrong for a local
+    // engine, so we must be explicit, matching how `m test` resolves local.
+    assert.deepEqual(statusArgv(bare), [
+      'vista',
+      'status',
+      '--engine',
+      'ydb',
+      '--transport',
+      'local',
+      '-o',
+      'json',
+    ]);
+  });
+
+  it('leaves iris on its remote/Atelier default with no container', () => {
+    // IRIS has no local transport; the connection comes from M_IRIS_* env.
+    assert.ok(!statusArgv(irisBare).includes('--transport'));
   });
 });
 

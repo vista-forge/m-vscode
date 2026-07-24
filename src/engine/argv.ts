@@ -20,13 +20,19 @@ function stagedFlags(s: EngineSettings): string[] {
 
 /**
  * The driver-backed verbs (`vista status`, `vista exec`) take a transport
- * rather than a container — the container itself comes from the driver's
- * `M_<ENGINE>_*` environment. Configuring a container here therefore means
- * "docker transport"; configuring none leaves the driver's own default alone.
+ * rather than a container. A configured container means "docker transport". With
+ * no container the engine is beside us: for ydb that is the LOCAL transport
+ * (the ydb driver's own default is REMOTE, which needs a host — wrong for a
+ * local/devbox engine, and unlike how `m test` resolves a docker-less run). IRIS
+ * has no local transport, so it keeps its remote/Atelier default from M_IRIS_*.
  */
 function driverFlags(s: EngineSettings): string[] {
   const argv = ['--engine', s.engine];
-  if (s.docker !== '') argv.push('--transport', 'docker');
+  if (s.docker !== '') {
+    argv.push('--transport', 'docker');
+  } else if (s.engine === 'ydb') {
+    argv.push('--transport', 'local');
+  }
   return argv;
 }
 
